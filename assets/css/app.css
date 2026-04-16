@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@source "lib/**/*.ex";
+@source "lib/**/*.heex";
+@source "lib/**/*.eex";
+@source "assets/**/*.js";
+
+/* Custom Scrollbar Styles */
+@layer base {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #4b5563; /* Tailwind gray-600 */
+    border-radius: 10px;
+    transition: background 0.3s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #6b7280; /* Tailwind gray-500 */
+  }
+
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #4b5563 transparent;
+  }
+}
+
+/* Smooth Scrolling for the chat container */
+#chat-container {
+  scroll-behavior: smooth;
+}

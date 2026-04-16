@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <%= csrf_meta_tag() %>
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>AOS Admin & Agent</title>
+    <% conn_or_socket = assigns[:conn] || assigns[:socket] %>
+    <link rel="shortcut icon" href={Routes.static_path(conn_or_socket, "/favicon.ico")}>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href={Routes.static_path(conn_or_socket, "/css/app.css")}/>
+    <link rel="stylesheet" href={Routes.static_path(conn_or_socket, "/assets/app.css")}/>
+    <script defer type="text/javascript" src={Routes.static_path(conn_or_socket, "/assets/app.js")}></script>
+  </head>
+  <body class="h-full w-full bg-gray-950 overflow-hidden">
+    <%= if not assigns[:full_width] do %>
+      <a href="#nav" id="toggle-nav" class="toggle-nav" aria-label="Open navigation">
+        <span class="sr-only">Open navigation</span>
+        <span class="fa fa-bars" aria-hidden="true"></span>
+      </a>
+      <nav id="nav" class="nav">
+        <a href="#toggle-nav" class="close-nav" aria-label="Open navigation">
+          <span class="fa fa-close"></span>
+        </a>
+        <ul>
+          <%= if assigns[:is_super_admin] do %>
+            <li>
+              <a title="swagger ui" href="/api/swagger">Swagger UI</a>
+            </li>
+            <li>
+              <a title="dashboard" href={Routes.live_dashboard_path(conn_or_socket, :home)}>Dashboard</a>
+            </li>
+            <%= if assigns[:env] != :prod do %>
+              <li>
+                <a title="test coverage" href={Routes.test_coverage_path(conn_or_socket, :index)}>Test Coverage</a>
+              </li>
+              <li>
+                <a title="Code Documentation" href={Routes.docs_path(conn_or_socket, :index, %{})}>Documentation</a>
+              </li>
+            <% end %>
+          <% end %>
+        </ul>
+        <a href="#toggle-nav" class="backdrop" tabindex="-1" aria-hidden="true"></a>
+      </nav>
+    <% end %>
+
+    <main class={if assigns[:full_width], do: "h-full w-full", else: "container"}>
+      <%= if not assigns[:full_width] do %>
+        <%= if assigns[:conn] do %>
+          <p class="alert alert-info" role="alert"><%= Phoenix.Flash.get(@flash, :info) %></p>
+          <p class="alert alert-danger" role="alert"><%= Phoenix.Flash.get(@flash, :error) %></p>
+        <% else %>
+          <p class="alert alert-info" role="alert"><%= Phoenix.Flash.get(@flash, :info) %></p>
+          <p class="alert alert-danger" role="alert"><%= Phoenix.Flash.get(@flash, :error) %></p>
+        <% end %>
+      <% end %>
+      <%= @inner_content %>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,33 @@
+<div class="flex h-screen bg-gray-950 text-gray-100 font-mono">
+  <!-- Sidebar -->
+  <aside class="w-64 border-r border-gray-800 bg-gray-900 flex flex-col shrink-0">
+    <div class="h-16 flex items-center px-6 border-b border-gray-800">
+      <h1 class="text-xl font-bold text-blue-400 tracking-tighter">AgentOS Admin</h1>
+    </div>
+    
+    <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+      <div class="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-4 mb-2">Management</div>
+      <a href="/admin/skills" class="flex items-center space-x-3 px-4 py-3 rounded-lg bg-blue-900/20 text-blue-300 font-bold border border-blue-800 transition-all">
+        <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+        <span>Skills</span>
+      </a>
+      <!-- Placeholder for more menus -->
+      <div class="pt-4 text-[10px] font-bold text-gray-600 uppercase tracking-widest px-4 mb-2">System</div>
+      <a href="/agent" class="flex items-center space-x-3 px-4 py-3 rounded-lg text-gray-400 hover:bg-gray-800 transition-all">
+        <span class="w-2 h-2 rounded-full bg-gray-600"></span>
+        <span>Back to Agent</span>
+      </a>
+    </nav>
+
+    <div class="p-4 border-t border-gray-800">
+      <a href="/admin/logout" class="flex items-center justify-center space-x-2 w-full py-2 text-sm text-red-400 hover:bg-red-900/10 rounded-lg transition-colors border border-transparent hover:border-red-900/30">
+        <span>Logout</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Content -->
+  <main class="flex-1 overflow-y-auto bg-gray-950">
+    <%= @inner_content %>
+  </main>
+</div>
