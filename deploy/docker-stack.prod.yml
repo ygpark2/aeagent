@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  api:
+    image: ${IMAGE_TAG:-aos-api-elixir:latest}
+    environment:
+      - ADMIN_USERS=${ADMIN_USERS:-'[]'}
+      - DATABASE_URL=${DATABASE_URL:-nothing_yet}
+      - DATABASE_URL_LEGACY=${DATABASE_URL_LEGACY:-nothing_yet}
+      - ENCRYPTION_KEYS=${ENCRYPTION_KEYS:-oSpY0JP74A662b1bmGYbwv/bwWkbHEWzOGy7luEchAw=}
+      - LEGACY_SODIUM_SECRET_KEY=${LEGACY_SODIUM_SECRET_KEY:-nothing_yet}
+      - MIX_ENV=${MIX_ENV:-prod}
+      - PORT=${PORT:-4000}
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE:-LLRgjeeWvf1K1U0vsGVCESK4AcTD2lXnL1x13SLiac7XW4UhwW2PWaxE+ejIMeUs}
+    ports:
+      - ${PORT:-4000}:${PORT:-4000}
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        order: start-first
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

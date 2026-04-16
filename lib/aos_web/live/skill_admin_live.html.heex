@@ -1,0 +1,80 @@
+<div class="p-8 bg-gray-950 text-white min-h-screen font-mono">
+  <div class="max-w-6xl mx-auto">
+    <div class="flex items-center justify-between mb-8 border-b border-gray-800 pb-4">
+      <h1 class="text-3xl font-bold text-blue-400">Agent Skills Administration</h1>
+      <a href="/agent" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-sm transition-colors border border-gray-600">
+        &larr; Back to Dashboard
+      </a>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      
+      <!-- Skill Registration Form -->
+      <div class="lg:col-span-1 bg-gray-900 p-6 rounded-lg border border-gray-700 shadow-xl h-fit">
+        <h2 class="text-xl font-bold mb-4 text-gray-100">Register New Skill</h2>
+        
+        <.form :let={f} for={@changeset} phx-change="validate" phx-submit="save" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Skill Name (ID)</label>
+            <%= text_input f, :name, placeholder: "e.g. excel_pro", 
+                class: "w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none" %>
+            <%= error_tag f, :name %>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Description (for LLM Selection)</label>
+            <%= textarea f, :description, rows: 3, placeholder: "Briefly explain what this skill does...",
+                class: "w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none resize-none" %>
+            <%= error_tag f, :description %>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Instructions (Expert Persona)</label>
+            <%= textarea f, :instructions, rows: 5, placeholder: "How should the AI behave with this skill?",
+                class: "w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none resize-none" %>
+            <%= error_tag f, :instructions %>
+          </div>
+
+          <button type="submit" class="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded transition-colors shadow-lg active:scale-95">
+            Register Skill
+          </button>
+        </.form>
+      </div>
+
+      <!-- Skills List -->
+      <div class="lg:col-span-2 space-y-4">
+        <h2 class="text-xl font-bold mb-4 text-gray-100">Registered Skills (<%= length(@skills) %>)</h2>
+        
+        <%= for skill <- @skills do %>
+          <div class="bg-gray-900 border border-gray-700 p-5 rounded-lg shadow hover:border-gray-500 transition-all group">
+            <div class="flex justify-between items-start mb-2">
+              <div class="flex items-center space-x-3">
+                <span class="text-lg font-bold text-blue-300"><%= skill.name %></span>
+                <span class={"px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-wider #{if skill.is_active, do: "bg-green-900 text-green-300", else: "bg-red-900 text-red-300"}"}>
+                  <%= if skill.is_active, do: "Active", else: "Inactive" %>
+                </span>
+              </div>
+              <div class="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button phx-click="toggle_active" phx-value-id={skill.id} class="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-800 border border-gray-700">
+                  Toggle
+                </button>
+                <button phx-click="delete" phx-value-id={skill.id} data-confirm="Are you sure?" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded bg-red-900/20 border border-red-900/50">
+                  Delete
+                </button>
+              </div>
+            </div>
+            
+            <p class="text-sm text-gray-400 mb-3"><%= skill.description %></p>
+            
+            <%= if skill.instructions do %>
+              <div class="mt-2 bg-gray-950 p-3 rounded text-xs text-gray-500 border-l-2 border-blue-600 italic">
+                <strong>Persona:</strong> <%= String.slice(skill.instructions, 0, 150) %>...
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
+    </div>
+  </div>
+</div>
