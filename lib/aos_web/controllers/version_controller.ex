@@ -4,12 +4,15 @@ defmodule AOSWeb.VersionController do
 
   import Plug.Conn
 
-  plug :put_layout, html: AOSWeb.LayoutView
-
   action_fallback AOSWeb.FallbackController
 
   def index(conn, _params) do
     app_version = Application.spec(:aos, :vsn) |> List.to_string()
-    conn |> render("index.json", app_version: app_version, version: "v1")
+
+    json(conn, %{
+      releaseId: app_version,
+      status: AOS.AgentOS.Operations.doctor().status,
+      version: "v1"
+    })
   end
 end

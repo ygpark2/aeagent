@@ -10,15 +10,21 @@ defmodule AOS.AgentOS.Roles.Reporter do
 
   def run(input, _ctx) do
     # Try multiple result fields for compatibility
-    raw_result = Map.get(input, :execution_result) || Map.get(input, :result) || "No result to summarize."
-    
+    raw_result =
+      Map.get(input, :execution_result) || Map.get(input, :result) || "No result to summarize."
+
     prompt = """
     You are a professional reporter for an AI Agent OS. 
     Summarize the following execution result for the user in a friendly and professional way.
     Result: #{raw_result}
     """
 
-    case LLM.call_with_meta(prompt, history: Map.get(input, :history, []), notify: Map.get(input, :notify)) do
+    case LLM.call_with_meta(prompt,
+           history: Map.get(input, :history, []),
+           notify: Map.get(input, :notify),
+           execution_id: Map.get(input, :execution_id),
+           session_id: Map.get(input, :session_id)
+         ) do
       {:ok, %{text: report} = meta} ->
         usage = Map.get(meta, "usage", %{})
         additional_cost = Map.get(meta, "cost_usd", 0.0)

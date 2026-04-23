@@ -9,31 +9,33 @@ defmodule AOS.AgentOS.Roles.Executor do
     skills = Map.get(input, :selected_skills, [])
     message = Map.get(input, :message) || Map.get(input, :task, "")
     skill_context = build_skill_context(skills)
-    
+
     prompt = """
     You are an autonomous executor agent. 
     User request: "#{message}"
     #{skill_context}
-    
+
     CRITICAL CAPABILITY: You HAVE access to real-time web search via the 'web_search' tool.
     If the user asks for current events, stock prices, news, or information you don't have in your training data, you MUST use the 'web_search' tool.
-    
+
     Do not give excuses about not having real-time access. Just use the tool.
-    
+
     Available Tool Highlights:
     - web_search: For real-time info, stock prices, news.
     - ls, read_file, grep_search: For codebase interaction.
     - execute_command: For running terminal commands (requires confirmation).
     - write_file, replace: For file edits (require confirmation).
-    
+
     Proceed with necessary tool calls now to fulfill the request.
     """
 
-    case LLM.call_with_meta(prompt, 
-      history: Map.get(input, :history, []), 
-      notify: Map.get(input, :notify),
-      use_tools: true
-    ) do
+    case LLM.call_with_meta(prompt,
+           history: Map.get(input, :history, []),
+           notify: Map.get(input, :notify),
+           execution_id: Map.get(input, :execution_id),
+           session_id: Map.get(input, :session_id),
+           use_tools: true
+         ) do
       {:ok, %{text: result} = meta} ->
         usage = Map.get(meta, "usage", %{})
         additional_cost = Map.get(meta, "cost_usd", 0.0)

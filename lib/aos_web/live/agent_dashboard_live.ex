@@ -5,7 +5,7 @@ defmodule AOSWeb.AgentDashboardLive do
   """
   use AOSWeb, :live_view
   require Logger
-  alias AOS.AgentOS.Core.{Architect, Engine}
+  alias AOS.AgentOS.Executions
   alias AOS.AgentOS.Roles.Reporter
 
   @impl true
@@ -14,19 +14,31 @@ defmodule AOSWeb.AgentDashboardLive do
       {:ok, %{content: [%{text: file_tree}]}} =
         AOS.AgentOS.MCP.Internal.Shell.call_tool("list_codebase_structure", %{})
 
-      socket = assign(socket, 
-        messages: [],
-        current_status: "Ready",
-        file_tree: file_tree,
-        active_diff: "",
-        input_value: "",
-        agent_pid: nil,
-        pending_approvals: %{},
-        full_width: true
-      )
+      socket =
+        assign(socket,
+          messages: [],
+          current_status: "Ready",
+          file_tree: file_tree,
+          active_diff: "",
+          input_value: "",
+          agent_pid: nil,
+          pending_approvals: %{},
+          full_width: true
+        )
+
       {:ok, socket}
     else
-      {:ok, assign(socket, messages: [], current_status: "Connecting...", file_tree: "Loading...", active_diff: "", input_value: "", agent_pid: nil, pending_approvals: %{}, full_width: true)}
+      {:ok,
+       assign(socket,
+         messages: [],
+         current_status: "Connecting...",
+         file_tree: "Loading...",
+         active_diff: "",
+         input_value: "",
+         agent_pid: nil,
+         pending_approvals: %{},
+         full_width: true
+       )}
     end
   end
 
@@ -37,15 +49,25 @@ defmodule AOSWeb.AgentDashboardLive do
     else
       user_msg = %{role: "user", content: message, type: :chat}
       new_messages = socket.assigns.messages ++ [user_msg]
-      parent_pid = self()
 
-      Task.start(fn -> 
-        graph = Architect.build_graph(message, notify: parent_pid)
-        input = %{task: message, history: Enum.map(new_messages, &({&1.role, &1.content}))}
-        Engine.run(graph, input, notify: parent_pid)
-      end)
+      {:ok, execution} =
+        Executions.enqueue(message,
+          notify: self(),
+          history: Enum.map(new_messages, &{&1.role, &1.content})
+        )
 
-      {:noreply, assign(socket, messages: new_messages, input_value: "", current_status: "Designing workflow...")}
+      execution_msg = %{
+        role: "system",
+        content: "Execution queued: #{execution.id}",
+        type: :system
+      }
+
+      {:noreply,
+       assign(socket,
+         messages: new_messages ++ [execution_msg],
+         input_value: "",
+         current_status: "Designing workflow..."
+       )}
     end
   end
 
@@ -66,7 +88,9 @@ defmodule AOSWeb.AgentDashboardLive do
   @impl true
   def handle_info({:architect_status, status}, socket) do
     new_message = %{role: "system", content: "🧠 Architect: #{status}", type: :system}
-    {:noreply, assign(socket, messages: socket.assigns.messages ++ [new_message], current_status: status)}
+
+    {:noreply,
+     assign(socket, messages: socket.assigns.messages ++ [new_message], current_status: status)}
   end
 
   # Handle 3-element tuple from Engine
@@ -95,8 +119,17 @@ defmodule AOSWeb.AgentDashboardLive do
 
   @impl true
   def handle_info({:workflow_error, node_id, reason}, socket) do
-    new_message = %{role: "system", content: "❌ Error at #{node_id}: #{inspect(reason)}", type: :system}
-    {:noreply, assign(socket, messages: socket.assigns.messages ++ [new_message], current_status: "Error occurred.")}
+    new_message = %{
+      role: "system",
+      content: "❌ Error at #{node_id}: #{inspect(reason)}",
+      type: :system
+    }
+
+    {:noreply,
+     assign(socket,
+       messages: socket.assigns.messages ++ [new_message],
+       current_status: "Error occurred."
+     )}
   end
 
   @impl true
@@ -105,7 +138,10 @@ defmodule AOSWeb.AgentDashboardLive do
   end
 
   @impl true
-  def handle_info({:request_tool_confirmation, approval_ref, tool_name, args, requester_pid}, socket) do
+  def handle_info(
+        {:request_tool_confirmation, approval_ref, tool_name, args, requester_pid},
+        socket
+      ) do
     approval_msg = %{
       role: "system",
       content: "🔐 Security Check: Allow '#{tool_name}'?\nArgs: #{inspect(args)}",
@@ -132,12 +168,18 @@ defmodule AOSWeb.AgentDashboardLive do
 
     content =
       cond do
-        is_reporter -> Map.get(data, :result, "Task completed.")
+        is_reporter ->
+          Map.get(data, :result, "Task completed.")
+
         module == AOS.AgentOS.Core.Nodes.LLMEvaluator ->
           outcome = Map.get(data, :last_outcome)
           "🔍 Evaluation: **#{String.upcase(to_string(outcome))}**"
-        String.starts_with?(node_str, "Tool:") -> "✅ #{node_str} finished."
-        true -> "✅ Completed: #{node_str}"
+
+        String.starts_with?(node_str, "Tool:") ->
+          "✅ #{node_str} finished."
+
+        true ->
+          "✅ Completed: #{node_str}"
       end
 
     type = if is_reporter, do: :chat, else: :system
@@ -145,16 +187,25 @@ defmodule AOSWeb.AgentDashboardLive do
 
     socket =
       socket
-      |> assign(messages: socket.assigns.messages ++ [new_message], current_status: "Finished #{node_str}")
+      |> assign(
+        messages: socket.assigns.messages ++ [new_message],
+        current_status: "Finished #{node_str}"
+      )
       |> maybe_assign_inspection(inspection)
 
     {:noreply, socket}
   end
 
   defp handle_step_started(name, socket) do
-    content = if String.starts_with?(name, "Tool:"), do: "🛠️ Starting: #{name}", else: "⚙️ Executing: #{name}..."
+    content =
+      if String.starts_with?(name, "Tool:"),
+        do: "🛠️ Starting: #{name}",
+        else: "⚙️ Executing: #{name}..."
+
     new_message = %{role: "system", content: content, type: :system}
-    {:noreply, assign(socket, messages: socket.assigns.messages ++ [new_message], current_status: content)}
+
+    {:noreply,
+     assign(socket, messages: socket.assigns.messages ++ [new_message], current_status: content)}
   end
 
   defp resolve_tool_approval(socket, approval_ref, decision, status_text) do
@@ -183,7 +234,10 @@ defmodule AOSWeb.AgentDashboardLive do
   end
 
   defp extract_inspection(%{inspection: inspection}) when is_binary(inspection), do: inspection
-  defp extract_inspection(%{result: %{inspection: inspection}}) when is_binary(inspection), do: inspection
+
+  defp extract_inspection(%{result: %{inspection: inspection}}) when is_binary(inspection),
+    do: inspection
+
   defp extract_inspection(_), do: nil
 
   defp maybe_assign_inspection(socket, nil), do: socket

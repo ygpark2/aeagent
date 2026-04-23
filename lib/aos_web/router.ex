@@ -66,12 +66,22 @@ defmodule AOSWeb.Router do
     pipe_through [:api, :api_deserializer]
 
     scope "/v1", V1, as: :v1 do
+      post "/channels/slack/commands", SlackController, :create
+      post "/channels/slack/interactions", SlackController, :interact
+      post "/webhooks/executions", WebhookController, :create
+      post "/executions/:id/resume", ExecutionController, :resume
+      post "/executions/:id/retry", ExecutionController, :retry
+      get "/executions/:id/replay", ExecutionController, :replay
+      resources "/sessions", SessionController, only: [:index, :show]
+      resources "/executions", ExecutionController, only: [:index, :show, :create]
     end
   end
 
   scope "/healthcheck", AOSWeb do
     pipe_through [:api, :api_deserializer]
     get "/", VersionController, :index
+    get "/doctor", OperationsController, :doctor
+    get "/metrics", OperationsController, :metrics
   end
 
   scope "/test_coverage", AOSWeb do

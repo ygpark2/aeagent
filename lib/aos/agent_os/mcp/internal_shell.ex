@@ -5,118 +5,160 @@ defmodule AOS.AgentOS.MCP.Internal.Shell do
   require Logger
   @allowed_commands ~w(git mix ls pwd echo cat sed grep rg find head tail wc)
   @dangerous_args ~w(--force --hard --delete -rf -fr /)
-  
+
   def list_tools do
-    {:ok, %{
-      "tools" => [
-        %{
-          "name" => "ls",
-          "description" => "List files in a directory",
-          "inputSchema" => %{
-            "type" => "object",
-            "properties" => %{
-              "path" => %{"type" => "string", "description" => "Path to list"}
-            }
-          }
-        },
-        %{
-          "name" => "read_file",
-          "description" => "Read content of a file",
-          "inputSchema" => %{
-            "type" => "object",
-            "properties" => %{
-              "path" => %{"type" => "string", "description" => "Path to file"}
-            },
-            "required" => ["path"]
-          }
-        },
-        %{
-          "name" => "write_file",
-          "description" => "Write or overwrite a file with given content",
-          "inputSchema" => %{
-            "type" => "object",
-            "properties" => %{
-              "path" => %{"type" => "string", "description" => "Path to save the file"},
-              "content" => %{"type" => "string", "description" => "The full content to write"}
-            },
-            "required" => ["path", "content"]
-          }
-        },
-        %{
-          "name" => "execute_command",
-          "description" => "Execute a shell command. DANGEROUS: Always requires confirmation.",
-          "inputSchema" => %{
-            "type" => "object",
-            "properties" => %{
-              "command" => %{"type" => "string", "description" => "The shell command to run"},
-              "args" => %{"type" => "array", "items" => %{"type" => "string"}, "description" => "List of arguments"}
-            },
-            "required" => ["command"]
-          }
-        },
-        %{
-          "name" => "fetch_url",
-          "description" => "Fetch the content of a website (URL)",
-          "inputSchema" => %{
-            "type" => "object",
-            "properties" => %{
-              "url" => %{"type" => "string", "description" => "The URL to fetch"}
-            },
-            "required" => ["url"]
-          }
-        },
-        %{
-          "name" => "web_search",
-          "description" => "Search the web for current information and return a short list of relevant results.",
-          "inputSchema" => %{
-            "type" => "object",
-            "properties" => %{
-              "query" => %{"type" => "string", "description" => "Search query"},
-              "max_results" => %{"type" => "integer", "description" => "Maximum number of results to return"}
-            },
-            "required" => ["query"]
-          }
-        },
-        %{
-          "name" => "grep_search",
-          "description" => "Search for a pattern in files within a directory (recursive)",
-          "inputSchema" => %{
-            "type" => "object",
-            "properties" => %{
-              "pattern" => %{"type" => "string", "description" => "The regex pattern to search for"},
-              "path" => %{"type" => "string", "description" => "Directory to search in (default: .)"},
-              "include" => %{"type" => "string", "description" => "Glob pattern for files to include (e.g. *.ex)"}
-            },
-            "required" => ["pattern"]
-          }
-        },
-        %{
-          "name" => "replace",
-          "description" => "Surgically replace a string in a file with another string. ONLY replaces if the exact old_string is found once.",
-          "inputSchema" => %{
-            "type" => "object",
-            "properties" => %{
-              "path" => %{"type" => "string", "description" => "Path to file"},
-              "old_string" => %{"type" => "string", "description" => "The exact literal text to replace"},
-              "new_string" => %{"type" => "string", "description" => "The replacement text"}
-            },
-            "required" => ["path", "old_string", "new_string"]
-          }
-        },
-        %{
-          "name" => "list_codebase_structure",
-          "description" => "Provides a high-level summary of the codebase structure, key files, and directory tree.",
-          "inputSchema" => %{
-            "type" => "object",
-            "properties" => %{}
-          }
-        }
-      ]
-    }}
+    {:ok,
+     %{
+       "tools" => [
+         %{
+           "name" => "ls",
+           "description" => "List files in a directory",
+           "riskTier" => "low",
+           "requiresConfirmation" => false,
+           "inputSchema" => %{
+             "type" => "object",
+             "properties" => %{
+               "path" => %{"type" => "string", "description" => "Path to list"}
+             }
+           }
+         },
+         %{
+           "name" => "read_file",
+           "description" => "Read content of a file",
+           "riskTier" => "low",
+           "requiresConfirmation" => false,
+           "inputSchema" => %{
+             "type" => "object",
+             "properties" => %{
+               "path" => %{"type" => "string", "description" => "Path to file"}
+             },
+             "required" => ["path"]
+           }
+         },
+         %{
+           "name" => "write_file",
+           "description" => "Write or overwrite a file with given content",
+           "riskTier" => "high",
+           "requiresConfirmation" => true,
+           "inputSchema" => %{
+             "type" => "object",
+             "properties" => %{
+               "path" => %{"type" => "string", "description" => "Path to save the file"},
+               "content" => %{"type" => "string", "description" => "The full content to write"}
+             },
+             "required" => ["path", "content"]
+           }
+         },
+         %{
+           "name" => "execute_command",
+           "description" => "Execute a shell command. DANGEROUS: Always requires confirmation.",
+           "riskTier" => "high",
+           "requiresConfirmation" => true,
+           "inputSchema" => %{
+             "type" => "object",
+             "properties" => %{
+               "command" => %{"type" => "string", "description" => "The shell command to run"},
+               "args" => %{
+                 "type" => "array",
+                 "items" => %{"type" => "string"},
+                 "description" => "List of arguments"
+               }
+             },
+             "required" => ["command"]
+           }
+         },
+         %{
+           "name" => "fetch_url",
+           "description" => "Fetch the content of a website (URL)",
+           "riskTier" => "medium",
+           "requiresConfirmation" => false,
+           "inputSchema" => %{
+             "type" => "object",
+             "properties" => %{
+               "url" => %{"type" => "string", "description" => "The URL to fetch"}
+             },
+             "required" => ["url"]
+           }
+         },
+         %{
+           "name" => "web_search",
+           "description" =>
+             "Search the web for current information and return a short list of relevant results.",
+           "riskTier" => "medium",
+           "requiresConfirmation" => false,
+           "inputSchema" => %{
+             "type" => "object",
+             "properties" => %{
+               "query" => %{"type" => "string", "description" => "Search query"},
+               "max_results" => %{
+                 "type" => "integer",
+                 "description" => "Maximum number of results to return"
+               }
+             },
+             "required" => ["query"]
+           }
+         },
+         %{
+           "name" => "grep_search",
+           "description" => "Search for a pattern in files within a directory (recursive)",
+           "riskTier" => "low",
+           "requiresConfirmation" => false,
+           "inputSchema" => %{
+             "type" => "object",
+             "properties" => %{
+               "pattern" => %{
+                 "type" => "string",
+                 "description" => "The regex pattern to search for"
+               },
+               "path" => %{
+                 "type" => "string",
+                 "description" => "Directory to search in (default: .)"
+               },
+               "include" => %{
+                 "type" => "string",
+                 "description" => "Glob pattern for files to include (e.g. *.ex)"
+               }
+             },
+             "required" => ["pattern"]
+           }
+         },
+         %{
+           "name" => "replace",
+           "description" =>
+             "Surgically replace a string in a file with another string. ONLY replaces if the exact old_string is found once.",
+           "riskTier" => "high",
+           "requiresConfirmation" => true,
+           "inputSchema" => %{
+             "type" => "object",
+             "properties" => %{
+               "path" => %{"type" => "string", "description" => "Path to file"},
+               "old_string" => %{
+                 "type" => "string",
+                 "description" => "The exact literal text to replace"
+               },
+               "new_string" => %{"type" => "string", "description" => "The replacement text"}
+             },
+             "required" => ["path", "old_string", "new_string"]
+           }
+         },
+         %{
+           "name" => "list_codebase_structure",
+           "description" =>
+             "Provides a high-level summary of the codebase structure, key files, and directory tree.",
+           "riskTier" => "low",
+           "requiresConfirmation" => false,
+           "inputSchema" => %{
+             "type" => "object",
+             "properties" => %{}
+           }
+         }
+       ]
+     }}
   end
 
   def call_tool("ls", args) do
     path = Map.get(args, "path") || "."
+
     with {:ok, expanded_path} <- validate_workspace_path(path) do
       case System.cmd("ls", ["-p", expanded_path]) do
         {out, 0} -> {:ok, %{content: [%{type: "text", text: out}]}}
@@ -141,6 +183,7 @@ defmodule AOS.AgentOS.MCP.Internal.Shell do
   def call_tool("write_file", %{"path" => path, "content" => content}) do
     with {:ok, expanded_path} <- validate_workspace_path(path) do
       Logger.info("Writing file: #{expanded_path}")
+
       previous_content =
         case File.read(expanded_path) do
           {:ok, existing} -> existing
@@ -168,6 +211,7 @@ defmodule AOS.AgentOS.MCP.Internal.Shell do
 
     with :ok <- validate_command(command, cmd_args) do
       Logger.info("Executing guarded command: #{command} #{inspect(cmd_args)}")
+
       case System.cmd(command, cmd_args, cd: workspace_root()) do
         {out, 0} -> {:ok, %{content: [%{type: "text", text: out}]}}
         {out, code} -> {:error, "Exit code #{code}: #{out}"}
@@ -177,11 +221,13 @@ defmodule AOS.AgentOS.MCP.Internal.Shell do
 
   def call_tool("web_search", %{"query" => query} = args) do
     max_results = Map.get(args, "max_results", 5)
-    url = "https://api.duckduckgo.com/?q=#{URI.encode_www_form(query)}&format=json&no_redirect=1&no_html=1"
+
+    url =
+      "https://api.duckduckgo.com/?q=#{URI.encode_www_form(query)}&format=json&no_redirect=1&no_html=1"
 
     Logger.info("Searching web: #{query}")
 
-    case HTTPoison.get(url, [], [follow_redirect: true, timeout: 30_000, recv_timeout: 30_000]) do
+    case HTTPoison.get(url, [], follow_redirect: true, timeout: 30_000, recv_timeout: 30_000) do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         body
         |> Jason.decode()
@@ -209,12 +255,17 @@ defmodule AOS.AgentOS.MCP.Internal.Shell do
 
   def call_tool("fetch_url", %{"url" => url}) do
     Logger.info("Fetching URL: #{url}")
-    case HTTPoison.get(url, [], [follow_redirect: true, timeout: 30000, recv_timeout: 30000]) do
-      {out, 0} -> {:ok, %{content: [%{type: "text", text: out}]}}
+
+    case HTTPoison.get(url, [], follow_redirect: true, timeout: 30000, recv_timeout: 30000) do
+      {out, 0} ->
+        {:ok, %{content: [%{type: "text", text: out}]}}
+
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         {:ok, %{content: [%{type: "text", text: String.slice(body, 0, 5000)}]}}
+
       {:ok, %HTTPoison.Response{status_code: code}} ->
         {:error, "HTTP Error: #{code}"}
+
       {:error, %HTTPoison.Error{reason: reason}} ->
         {:error, "Network Error: #{inspect(reason)}"}
     end
@@ -240,30 +291,40 @@ defmodule AOS.AgentOS.MCP.Internal.Shell do
     with {:ok, expanded_path} <- validate_workspace_path(path) do
       case File.read(expanded_path) do
         {:ok, content} ->
-        parts = String.split(content, old)
-        case length(parts) do
-          1 -> {:error, "The exact old_string was not found in the file."}
-          2 -> 
-            new_content = Enum.join(parts, new)
-            case File.write(expanded_path, new_content) do
-              :ok ->
-                {:ok,
-                 %{
-                   content: [%{type: "text", text: "Successfully replaced in #{expanded_path}"}],
-                   inspection: render_file_change(expanded_path, content, new_content)
-                 }}
+          parts = String.split(content, old)
 
-              {:error, reason} -> {:error, inspect(reason)}
-            end
-          _ -> {:error, "The old_string was found multiple times. Please provide more context to make it unique."}
-        end
-        {:error, reason} -> {:error, inspect(reason)}
+          case length(parts) do
+            1 ->
+              {:error, "The exact old_string was not found in the file."}
+
+            2 ->
+              new_content = Enum.join(parts, new)
+
+              case File.write(expanded_path, new_content) do
+                :ok ->
+                  {:ok,
+                   %{
+                     content: [%{type: "text", text: "Successfully replaced in #{expanded_path}"}],
+                     inspection: render_file_change(expanded_path, content, new_content)
+                   }}
+
+                {:error, reason} ->
+                  {:error, inspect(reason)}
+              end
+
+            _ ->
+              {:error,
+               "The old_string was found multiple times. Please provide more context to make it unique."}
+          end
+
+        {:error, reason} ->
+          {:error, inspect(reason)}
       end
     end
   end
 
   def call_tool("list_codebase_structure", _) do
-    tree_cmd = 
+    tree_cmd =
       try do
         case System.cmd("tree", ["-L", "2", "-d", "lib"]) do
           {out, 0} -> out
@@ -279,6 +340,7 @@ defmodule AOS.AgentOS.MCP.Internal.Shell do
     - lib/ Directory Tree:
     #{tree_cmd}
     """
+
     {:ok, %{content: [%{type: "text", text: content}]}}
   end
 
@@ -303,9 +365,9 @@ defmodule AOS.AgentOS.MCP.Internal.Shell do
       |> String.split("\n", trim: false)
       |> List.myers_difference(String.split(new_content, "\n", trim: false))
       |> Enum.flat_map(fn
-        {:eq, lines} -> Enum.map(lines, &"  " <> &1)
-        {:ins, lines} -> Enum.map(lines, &"+ " <> &1)
-        {:del, lines} -> Enum.map(lines, &"- " <> &1)
+        {:eq, lines} -> Enum.map(lines, &("  " <> &1))
+        {:ins, lines} -> Enum.map(lines, &("+ " <> &1))
+        {:del, lines} -> Enum.map(lines, &("- " <> &1))
       end)
       |> Enum.join("\n")
 
@@ -326,7 +388,9 @@ defmodule AOS.AgentOS.MCP.Internal.Shell do
   end
 
   defp maybe_truncate(content, max_len) when byte_size(content) <= max_len, do: content
-  defp maybe_truncate(content, max_len), do: binary_part(content, 0, max_len) <> "\n...<truncated>"
+
+  defp maybe_truncate(content, max_len),
+    do: binary_part(content, 0, max_len) <> "\n...<truncated>"
 
   defp format_search_results(decoded, max_results) do
     instant_answer =

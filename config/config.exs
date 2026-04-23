@@ -50,7 +50,8 @@ config :aos,
   agent_api_key: System.get_env("AGENT_API_KEY") || "my-factory-api-key",
   agent_base_url: System.get_env("AGENT_BASE_URL") || "http://localhost:8317/v1beta",
   agent_model: System.get_env("AGENT_MODEL") || "models/gemini-3-pro-preview",
-  agent_runtime_type: (System.get_env("AGENT_RUNTIME_TYPE") || "api") |> String.to_atom(), # :api or :local
+  # :api or :local
+  agent_runtime_type: (System.get_env("AGENT_RUNTIME_TYPE") || "api") |> String.to_atom(),
   agent_local_model: System.get_env("AGENT_LOCAL_MODEL") || "google/gemma-2-2b-it",
   database_path: System.get_env("DATABASE_PATH") || "priv/repo/aos_dev.db",
   active_profile: (System.get_env("AGENT_PROFILE") || "jobdori") |> String.to_atom(),
@@ -58,6 +59,9 @@ config :aos,
   domain_success_cap: 1000,
   architect_max_retries: 1,
   workspace_root: File.cwd!(),
+  default_autonomy_level: System.get_env("DEFAULT_AUTONOMY_LEVEL") || "supervised",
+  webhook_shared_secret: System.get_env("WEBHOOK_SHARED_SECRET") || "dev-webhook-secret",
+  slack_shared_secret: System.get_env("SLACK_SHARED_SECRET") || "dev-slack-secret",
   max_agent_loops: 5,
   max_agent_cost_usd: 5.0,
   llm_pricing: %{
@@ -65,13 +69,14 @@ config :aos,
     "gpt" => %{input_per_1k: 0.005, output_per_1k: 0.015},
     "claude" => %{input_per_1k: 0.008, output_per_1k: 0.024}
   },
-  mcp_servers: %{
-    # 예시: 파일시스템 MCP 서버 (설치되어 있어야 함)
-    # filesystem: [
-    #   command: "npx",
-    #   args: ["-y", "@modelcontextprotocol/server-filesystem", "/Users/ygpark2/pjt/projects/coagent"]
-    # ]
-  }
+  mcp_servers:
+    %{
+      # 예시: 파일시스템 MCP 서버 (설치되어 있어야 함)
+      # filesystem: [
+      #   command: "npx",
+      #   args: ["-y", "@modelcontextprotocol/server-filesystem", "/Users/ygpark2/pjt/projects/coagent"]
+      # ]
+    }
 
 # Configures the endpoint
 config :aos, AOSWeb.Endpoint,

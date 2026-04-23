@@ -15,26 +15,32 @@ defmodule AOS.AgentOS.Core.Nodes.LLMWorker do
     prompt = """
     You are a professional AI Worker. 
     Current Task: #{task}
-    
+
     #{if feedback != "", do: "Previous Feedback to address: #{feedback}", else: ""}
     #{skill_brief}
-    
+
     Please perform the task. You have access to tools if needed.
     """
 
     Logger.info("[LLMWorker] Calling LLM for task: #{task}")
 
-    case LLM.call_with_meta(prompt, history: history, notify: notify_pid) do
+    case LLM.call_with_meta(prompt,
+           history: history,
+           notify: notify_pid,
+           execution_id: Map.get(context, :execution_id),
+           session_id: Map.get(context, :session_id)
+         ) do
       {:ok, %{text: result} = meta} ->
         usage = Map.get(meta, "usage", %{})
         additional_cost = Map.get(meta, "cost_usd", 0.0)
 
-        updated_context = context
+        updated_context =
+          context
           |> Map.put(:result, result)
           |> Map.put(:last_outcome, :success)
           |> accumulate_budget(additional_cost, usage)
           |> Map.put(:history, history ++ [{"user", prompt}, {"assistant", result}])
-        
+
         {:ok, updated_context}
 
       {:error, reason} ->
