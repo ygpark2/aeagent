@@ -13,12 +13,12 @@ defmodule AOS.AgentOS.Executions do
     async? = Keyword.get(opts, :async, true)
     start_immediately? = Keyword.get(opts, :start_immediately, true)
     notify_pid = Keyword.get(opts, :notify)
-    history = Keyword.get(opts, :history, [])
     initial_context = Keyword.get(opts, :initial_context, %{})
     autonomy_level = AOS.AgentOS.Autonomy.normalize_level(Keyword.get(opts, :autonomy_level))
 
     with {:ok, session} <-
            resolve_session(task, Keyword.put(opts, :autonomy_level, autonomy_level)),
+         history <- effective_history(Keyword.get(opts, :history, []), session.id),
          {:ok, execution} <-
            create_execution(%{
              task: task,
@@ -80,6 +80,15 @@ defmodule AOS.AgentOS.Executions do
     |> order_by([s], desc: s.updated_at)
     |> limit(^limit)
     |> Repo.all()
+  end
+
+  def session_history(session_id, opts \\ []) do
+    exclude_execution_id = Keyword.get(opts, :exclude_execution_id)
+    compress? = Keyword.get(opts, :compress, true)
+
+    session_id
+    |> raw_session_history(exclude_execution_id)
+    |> maybe_compress_history(compress?)
   end
 
   def resume_execution(execution_id, opts \\ []) do
@@ -207,6 +216,7 @@ defmodule AOS.AgentOS.Executions do
            update_execution(id, execution_attrs_from_context(context, "succeeded", nil)) do
       update_session_status(execution.session_id, "completed", execution.id)
       record_final_artifacts(execution, context)
+      maybe_notify_terminal_event(context, execution)
       maybe_dispatch_slack_response(execution)
       {:ok, execution}
     end
@@ -217,6 +227,7 @@ defmodule AOS.AgentOS.Executions do
            update_execution(id, execution_attrs_from_context(context, "blocked", reason)) do
       update_session_status(execution.session_id, "blocked", execution.id)
       record_final_artifacts(execution, context)
+      maybe_notify_terminal_event(context, execution)
       maybe_dispatch_slack_response(execution)
       {:ok, execution}
     end
@@ -227,6 +238,7 @@ defmodule AOS.AgentOS.Executions do
            update_execution(id, execution_attrs_from_context(context, "failed", reason)) do
       update_session_status(execution.session_id, "failed", execution.id)
       record_final_artifacts(execution, context)
+      maybe_notify_terminal_event(context, execution)
       maybe_dispatch_slack_response(execution)
       {:ok, execution}
     end
@@ -239,15 +251,17 @@ defmodule AOS.AgentOS.Executions do
     stored_initial_context =
       initial_context_for_run(execution_id, Keyword.get(opts, :initial_context, %{}))
 
+    session_id = Keyword.get(opts, :session_id)
+
     history =
       opts
       |> Keyword.get(:history, [])
+      |> effective_history(session_id, exclude_execution_id: execution_id)
       |> case do
         [] -> restore_history(get_in(stored_initial_context, [:history]))
         value -> value
       end
 
-    session_id = Keyword.get(opts, :session_id)
     initial_context = stored_initial_context
     autonomy_level = AOS.AgentOS.Autonomy.normalize_level(Keyword.get(opts, :autonomy_level))
     graph = graph_builder.(task, notify: notify_pid)
@@ -695,6 +709,20 @@ defmodule AOS.AgentOS.Executions do
   defp maybe_filter_by_session(query, session_id),
     do: where(query, [e], e.session_id == ^session_id)
 
+  defp raw_session_history(session_id, exclude_execution_id) do
+    Execution
+    |> where([e], e.session_id == ^session_id)
+    |> maybe_exclude_execution(exclude_execution_id)
+    |> order_by([e], asc: e.inserted_at)
+    |> Repo.all()
+    |> Enum.flat_map(&execution_history_messages/1)
+  end
+
+  defp maybe_exclude_execution(query, nil), do: query
+
+  defp maybe_exclude_execution(query, execution_id),
+    do: where(query, [e], e.id != ^execution_id)
+
   defp serialize_step(step) do
     %{
       node_id: step.node_id |> to_string(),
@@ -767,6 +795,105 @@ defmodule AOS.AgentOS.Executions do
 
   defp restore_history(_), do: []
 
+  defp effective_history(history, _session_id, _opts \\ [])
+  defp effective_history(history, _session_id, _opts) when history != [], do: history
+  defp effective_history([], nil, _opts), do: []
+
+  defp effective_history([], session_id, opts) do
+    session_history(session_id,
+      exclude_execution_id: Keyword.get(opts, :exclude_execution_id),
+      compress: true
+    )
+  end
+
+  defp execution_history_messages(execution) do
+    user_message =
+      execution.task
+      |> to_string()
+      |> String.trim()
+      |> case do
+        "" -> []
+        task -> [{"user", task}]
+      end
+
+    assistant_message =
+      execution
+      |> execution_response_message()
+      |> case do
+        nil -> []
+        message -> [{"assistant", message}]
+      end
+
+    user_message ++ assistant_message
+  end
+
+  defp execution_response_message(%Execution{final_result: result})
+       when is_binary(result) and result != "",
+       do: result
+
+  defp execution_response_message(%Execution{error_message: error_message})
+       when is_binary(error_message) and error_message != "",
+       do: "Execution failed: #{error_message}"
+
+  defp execution_response_message(_execution), do: nil
+
+  defp maybe_compress_history(history, false), do: history
+
+  defp maybe_compress_history(history, true) do
+    recent_turns = Application.get_env(:aos, :session_history_recent_turns, 6)
+    recent_messages = max(recent_turns * 2, 0)
+
+    if length(history) <= recent_messages or recent_messages == 0 do
+      history
+    else
+      {older, recent} = Enum.split(history, length(history) - recent_messages)
+      [{"system", summarize_history(older)} | recent]
+    end
+  end
+
+  defp summarize_history(messages) do
+    max_chars = Application.get_env(:aos, :session_history_summary_chars, 1600)
+
+    summary =
+      messages
+      |> Enum.chunk_every(2)
+      |> Enum.map_join("\n", fn pair ->
+        user =
+          pair
+          |> Enum.find_value(fn
+            {"user", content} -> "User: " <> truncate_summary_text(content, 180)
+            _ -> nil
+          end)
+
+        assistant =
+          pair
+          |> Enum.find_value(fn
+            {"assistant", content} -> "Assistant: " <> truncate_summary_text(content, 180)
+            _ -> nil
+          end)
+
+        Enum.reject([user, assistant], &is_nil/1)
+        |> Enum.join(" | ")
+      end)
+      |> String.slice(0, max_chars)
+
+    "Previous conversation summary:\n" <> summary
+  end
+
+  defp truncate_summary_text(content, max_chars) when is_binary(content) do
+    if String.length(content) > max_chars do
+      String.slice(content, 0, max_chars) <> "..."
+    else
+      content
+    end
+  end
+
+  defp truncate_summary_text(content, max_chars) do
+    content
+    |> inspect()
+    |> truncate_summary_text(max_chars)
+  end
+
   defp maybe_dispatch_slack_response(execution) do
     if execution.session_id do
       session = get_session!(execution.session_id)
@@ -780,6 +907,17 @@ defmodule AOS.AgentOS.Executions do
       end)
     else
       {:ok, :no_session}
+    end
+  end
+
+  defp maybe_notify_terminal_event(context, execution) do
+    case Map.get(context, :notify) do
+      pid when is_pid(pid) ->
+        send(pid, {:execution_terminal, execution.status, execution})
+        :ok
+
+      _ ->
+        :ok
     end
   end
 

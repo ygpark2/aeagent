@@ -133,8 +133,14 @@ defmodule AOSWeb.AgentDashboardLive do
   end
 
   @impl true
-  def handle_info(:workflow_finished, socket) do
-    {:noreply, assign(socket, current_status: "Idle")}
+  def handle_info({:execution_terminal, status, execution}, socket) do
+    messages = maybe_append_terminal_message(socket.assigns.messages, status, execution)
+
+    {:noreply,
+     assign(socket,
+       messages: messages,
+       current_status: terminal_status(status)
+     )}
   end
 
   @impl true
@@ -242,4 +248,39 @@ defmodule AOSWeb.AgentDashboardLive do
 
   defp maybe_assign_inspection(socket, nil), do: socket
   defp maybe_assign_inspection(socket, inspection), do: assign(socket, active_diff: inspection)
+
+  defp terminal_message("blocked", execution) do
+    %{
+      role: "system",
+      content: "⛔ Blocked: #{execution.error_message || execution.task}",
+      type: :system
+    }
+  end
+
+  defp terminal_message("failed", execution) do
+    %{
+      role: "system",
+      content: "❌ Failed: #{execution.error_message || execution.task}",
+      type: :system
+    }
+  end
+
+  defp terminal_message(_status, execution) do
+    %{
+      role: "system",
+      content: "Execution finished: #{execution.status}",
+      type: :system
+    }
+  end
+
+  defp maybe_append_terminal_message(messages, "succeeded", _execution), do: messages
+
+  defp maybe_append_terminal_message(messages, status, execution) do
+    messages ++ [terminal_message(status, execution)]
+  end
+
+  defp terminal_status("succeeded"), do: "Idle"
+  defp terminal_status("blocked"), do: "Blocked"
+  defp terminal_status("failed"), do: "Failed"
+  defp terminal_status(_status), do: "Idle"
 end

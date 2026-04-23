@@ -55,4 +55,32 @@ defmodule AOSWeb.AgentDashboardLiveTest do
     assert html =~ "File: lib/demo.ex"
     assert html =~ "+ line"
   end
+
+  test "handles execution terminal success without duplicating final chat message", %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/agent")
+
+    send(
+      view.pid,
+      {:execution_terminal, "succeeded",
+       %{id: "exec-1", status: "succeeded", final_result: "done", task: "demo"}}
+    )
+
+    html = render(view)
+    assert html =~ "Idle"
+    refute html =~ "Execution finished: succeeded"
+  end
+
+  test "renders terminal failure message from execution event", %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/agent")
+
+    send(
+      view.pid,
+      {:execution_terminal, "failed",
+       %{id: "exec-2", status: "failed", error_message: "boom", task: "demo"}}
+    )
+
+    html = render(view)
+    assert html =~ "Failed"
+    assert html =~ "boom"
+  end
 end
