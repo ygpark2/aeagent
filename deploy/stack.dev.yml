@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  api:
+    image: aos-api-elixir:dev
+    # Swarm stack deploy does not support env_file. 
+    # These variables are converted from the environment section and defaults.
+    environment:
+      - DATABASE_PATH=${DATABASE_PATH:-priv/repo/aos_dev.db}
+      - PORT=${PORT:-4000}
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE:-1vd1kSjcDoIt0hmoJMCRwM7Qx8y2EyhYESCcW+ytSXQ=}
+    command:
+      - "sh"
+      - "-c"
+      - "if [ ${MIX_SETUP:-} ]; then mix ecto.setup; else echo 'No setup requested.'; fi; if [ ${NO_AUTO_START:-} ]; then echo 'No auto start requested.'; tail -f /dev/null; else mix phx.server; fi"
+    ports:
+      - ${PORT:-4000}:${PORT:-4000}
+    volumes:
+      - ..:/app:delegated
+      - ~/.gitconfig:/root/.gitconfig:delegated
+      - ~/.ssh:/root/.ssh:delegated
+      - aos-api-elixir-root-vol:/root:delegated
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  aos-api-elixir-root-vol:

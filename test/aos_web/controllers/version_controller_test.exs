@@ -16,7 +16,7 @@ defmodule AOSWeb.VersionControllerTest do
 
       assert json_response(conn, 200) == %{
                "releaseId" => app_version,
-               "status" => 200,
+               "status" => "ok",
                "version" => "v1"
              }
     end

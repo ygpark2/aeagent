@@ -6,9 +6,12 @@ defmodule AOS.AgentOS.Core.Graph do
   defstruct [
     :id,
     :initial_node,
-    nodes: %{},        # %{node_id => node_module}
-    transitions: %{},  # %{node_id => [%{on: outcome, to: next_node_id}]}
-    outcomes: []       # Final terminal states
+    # %{node_id => node_module}
+    nodes: %{},
+    # %{node_id => [%{on: outcome, to: next_node_id}]}
+    transitions: %{},
+    # Final terminal states
+    outcomes: []
   ]
 
   def new(id) do
@@ -27,7 +30,10 @@ defmodule AOS.AgentOS.Core.Graph do
     transitions = graph.transitions
     current_node_transitions = Map.get(transitions, from_id, [])
     new_transition = %{on: outcome, to: to_id}
-    
-    %{graph | transitions: Map.put(transitions, from_id, current_node_transitions ++ [new_transition])}
+
+    %{
+      graph
+      | transitions: Map.put(transitions, from_id, current_node_transitions ++ [new_transition])
+    }
   end
 end

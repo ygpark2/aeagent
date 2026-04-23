@@ -24,6 +24,8 @@ defmodule AOS.Application do
       AOSWeb.Endpoint,
       # Start the Agent OS Session Supervisor
       AOS.AgentOS.Runtime.SessionSupervisor,
+      # Background tasks for API/CLI-triggered executions
+      {Task.Supervisor, name: AOS.AgentOS.TaskSupervisor},
       # Start MCP Manager
       AOS.AgentOS.MCP.Manager,
       # Start the Autonomous Scheduler
