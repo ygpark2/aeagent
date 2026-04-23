@@ -298,8 +298,8 @@ defmodule AOS.AgentOS.Roles.LLM do
 
           [%{role: "tool", tool_call_id: id, name: name, content: text_content}]
 
-        {"system", _content} ->
-          []
+        {"system", content} ->
+          [%{role: "system", content: scrub_utf8(content)}]
       end)
 
     messages =

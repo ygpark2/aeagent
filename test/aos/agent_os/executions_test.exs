@@ -3,7 +3,14 @@ defmodule AOS.AgentOS.ExecutionsTest do
 
   alias AOS.AgentOS.Core.{Graph, Session}
   alias AOS.AgentOS.Executions
-  alias AOS.Test.Support.Nodes.{CheckpointReporter, CheckpointWorker, MockEvaluator, MockWorker}
+
+  alias AOS.Test.Support.Nodes.{
+    CheckpointReporter,
+    CheckpointWorker,
+    HistoryProbeWorker,
+    MockEvaluator,
+    MockWorker
+  }
 
   test "creates session-linked queued execution" do
     assert {:ok, execution} =
@@ -55,6 +62,22 @@ defmodule AOS.AgentOS.ExecutionsTest do
     assert Enum.any?(artifacts, &(&1.kind == "execution_log"))
   end
 
+  test "complete_execution emits terminal event to notify pid" do
+    {:ok, execution} = Executions.enqueue("terminal event task", start_immediately: false)
+
+    assert {:ok, _updated} =
+             Executions.complete_execution(execution.id, %{
+               task: "terminal event task",
+               session_id: execution.session_id,
+               notify: self(),
+               result: "done",
+               execution_history: []
+             })
+
+    assert_receive {:execution_terminal, "succeeded", completed_execution}
+    assert completed_execution.id == execution.id
+  end
+
   test "resume and retry create follow-up executions in same session" do
     {:ok, execution} =
       Executions.enqueue("resume task", start_immediately: false, autonomy_level: "supervised")
@@ -83,6 +106,152 @@ defmodule AOS.AgentOS.ExecutionsTest do
     assert replay.latest_checkpoint == nil
     assert replay.artifacts == []
     assert replay.tool_audits == []
+  end
+
+  test "session_history returns prior user and assistant turns when compression is disabled" do
+    {:ok, session} =
+      %Session{}
+      |> Session.changeset(%{
+        title: "history session",
+        task: "history session",
+        status: "active",
+        autonomy_level: "supervised"
+      })
+      |> Repo.insert()
+
+    {:ok, _first} =
+      %AOS.AgentOS.Core.Execution{}
+      |> AOS.AgentOS.Core.Execution.changeset(%{
+        session_id: session.id,
+        domain: "general",
+        task: "first question",
+        status: "succeeded",
+        trigger_kind: "manual",
+        autonomy_level: "supervised",
+        success: true,
+        final_result: "first answer"
+      })
+      |> Repo.insert()
+
+    {:ok, _second} =
+      %AOS.AgentOS.Core.Execution{}
+      |> AOS.AgentOS.Core.Execution.changeset(%{
+        session_id: session.id,
+        domain: "general",
+        task: "second question",
+        status: "failed",
+        trigger_kind: "manual",
+        autonomy_level: "supervised",
+        success: false,
+        error_message: "second error"
+      })
+      |> Repo.insert()
+
+    assert Executions.session_history(session.id, compress: false) == [
+             {"user", "first question"},
+             {"assistant", "first answer"},
+             {"user", "second question"},
+             {"assistant", "Execution failed: second error"}
+           ]
+  end
+
+  test "session_history compresses older turns into a system summary" do
+    {:ok, session} =
+      %Session{}
+      |> Session.changeset(%{
+        title: "compressed history session",
+        task: "compressed history session",
+        status: "active",
+        autonomy_level: "supervised"
+      })
+      |> Repo.insert()
+
+    for index <- 1..7 do
+      {:ok, _execution} =
+        %AOS.AgentOS.Core.Execution{}
+        |> AOS.AgentOS.Core.Execution.changeset(%{
+          session_id: session.id,
+          domain: "general",
+          task: "question #{index}",
+          status: "succeeded",
+          trigger_kind: "manual",
+          autonomy_level: "supervised",
+          success: true,
+          final_result: "answer #{index}"
+        })
+        |> Repo.insert()
+    end
+
+    assert [
+             {"system", summary},
+             {"user", "question 2"},
+             {"assistant", "answer 2"},
+             {"user", "question 3"},
+             {"assistant", "answer 3"},
+             {"user", "question 4"},
+             {"assistant", "answer 4"},
+             {"user", "question 5"},
+             {"assistant", "answer 5"},
+             {"user", "question 6"},
+             {"assistant", "answer 6"},
+             {"user", "question 7"},
+             {"assistant", "answer 7"}
+           ] =
+             Executions.session_history(session.id)
+
+    assert summary =~ "Previous conversation summary"
+    assert summary =~ "question 1"
+  end
+
+  test "run_existing_execution falls back to session history when no explicit history is provided" do
+    graph =
+      Graph.new(:history_probe)
+      |> Graph.add_node(:worker, HistoryProbeWorker)
+      |> Graph.set_initial(:worker)
+      |> Graph.add_transition(:worker, :success, nil)
+
+    {:ok, session} =
+      %Session{}
+      |> Session.changeset(%{
+        title: "history probe session",
+        task: "history probe session",
+        status: "active",
+        autonomy_level: "supervised"
+      })
+      |> Repo.insert()
+
+    {:ok, _previous} =
+      %AOS.AgentOS.Core.Execution{}
+      |> AOS.AgentOS.Core.Execution.changeset(%{
+        session_id: session.id,
+        domain: "general",
+        task: "earlier prompt",
+        status: "succeeded",
+        trigger_kind: "manual",
+        autonomy_level: "supervised",
+        success: true,
+        final_result: "earlier reply"
+      })
+      |> Repo.insert()
+
+    {:ok, queued} =
+      Executions.enqueue("new prompt",
+        start_immediately: false,
+        session_id: session.id,
+        autonomy_level: "supervised"
+      )
+
+    assert {:ok, final_context} =
+             Executions.run_existing_execution(queued.id, queued.task,
+               session_id: session.id,
+               autonomy_level: "supervised",
+               graph_builder: fn _task, _opts -> graph end
+             )
+
+    assert final_context.captured_history == [
+             {"user", "earlier prompt"},
+             {"assistant", "earlier reply"}
+           ]
   end
 
   test "resume seeds new execution from latest checkpoint context" do

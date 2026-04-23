@@ -30,10 +30,9 @@ defmodule AOS.AgentOS.Core.Engine do
     end
   end
 
-  defp execute_node(_graph, nil, context, notify_pid) do
+  defp execute_node(_graph, nil, context, _notify_pid) do
     Logger.info("Reached terminal state. Workflow completed.")
     Executions.complete_execution(context.execution_id, context)
-    if notify_pid, do: send(notify_pid, :workflow_finished)
     {:ok, context}
   end
 

@@ -64,6 +64,8 @@ config :aos,
   slack_shared_secret: System.get_env("SLACK_SHARED_SECRET") || "dev-slack-secret",
   max_agent_loops: 5,
   max_agent_cost_usd: 5.0,
+  session_history_recent_turns: 6,
+  session_history_summary_chars: 1600,
   llm_pricing: %{
     "gemini" => %{input_per_1k: 0.003, output_per_1k: 0.006},
     "gpt" => %{input_per_1k: 0.005, output_per_1k: 0.015},
