@@ -12,7 +12,7 @@ defmodule AOS.AgentOS.Runtime.AIRuntime do
 
   def predict(prompt, _opts \\ []) do
     runtime_type = Application.get_env(:aos, :agent_runtime_type, :api)
-    
+
     case runtime_type do
       :local ->
         # Use FLAME to run the inference on a specialized worker if needed.
@@ -20,6 +20,7 @@ defmodule AOS.AgentOS.Runtime.AIRuntime do
         FLAME.call(AOS.AgentOS.Runtime.AIPool, fn ->
           GenServer.call(__MODULE__, {:predict, prompt}, 120_000)
         end)
+
       _ ->
         {:error, "Local runtime not enabled"}
     end
@@ -40,10 +41,11 @@ defmodule AOS.AgentOS.Runtime.AIRuntime do
       {:ok, tokenizer} = Bumblebee.load_tokenizer({:hf, model_name})
       {:ok, generation_config} = Bumblebee.load_generation_config({:hf, model_name})
 
-      serving = Bumblebee.Text.generation(model, tokenizer, generation_config,
-        compile: [batch_size: 1, sequence_length: 512],
-        defn_options: [compiler: EXLA]
-      )
+      serving =
+        Bumblebee.Text.generation(model, tokenizer, generation_config,
+          compile: [batch_size: 1, sequence_length: 512],
+          defn_options: [compiler: EXLA]
+        )
 
       {:ok, %{serving: serving}}
     else

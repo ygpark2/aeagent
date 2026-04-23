@@ -20,9 +20,7 @@ defmodule AOSWeb.Swagger.CommonDefinitions do
           properties do
             code(
               :integer,
-              "An app specific code applicable to this problem. Examples:\n#{
-                Maps.app_codes(:string)
-              }",
+              "An app specific code applicable to this problem. Examples:\n#{Maps.app_codes(:string)}",
               required: false
             )
 

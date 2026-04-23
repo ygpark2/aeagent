@@ -28,18 +28,18 @@ defmodule AOS.AgentOS.Runtime.Scheduler do
 
   @impl true
   def handle_info(:tick, state) do
-    Enum.each(state.tasks, fn task -> 
+    Enum.each(state.tasks, fn task ->
       Logger.info("Autonomous Wakeup: Executing scheduled task '#{task.name}'...")
-      
+
       # Use the task content/description to design a graph dynamically
       task_description = Map.get(task.input, :task, task.name)
       graph = Architect.build_graph(task_description)
 
-      Task.start(fn -> 
+      Task.start(fn ->
         Engine.run(graph, task.input)
       end)
     end)
-    
+
     {:noreply, state}
   end
 end

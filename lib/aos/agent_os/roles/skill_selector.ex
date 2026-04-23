@@ -14,17 +14,19 @@ defmodule AOS.AgentOS.Roles.SkillSelector do
   def run(input, _ctx) do
     message = Map.get(input, :message) || Map.get(input, :task, "")
     notify_pid = Map.get(input, :notify)
-    
+
     skills = SkillManager.list_active_skills()
-    skills_info = Enum.map_join(skills, "\n", fn s -> 
-      "- #{s.name}: #{s.description} (Capabilities: #{Enum.join(s.capabilities, ", ")})"
-    end)
+
+    skills_info =
+      Enum.map_join(skills, "\n", fn s ->
+        "- #{s.name}: #{s.description} (Capabilities: #{Enum.join(s.capabilities, ", ")})"
+      end)
 
     prompt = """
     Mission: "#{message}"
     Available Skills:
     #{skills_info}
-    
+
     Select the best skills to solve this task. Return a comma-separated list of skill names.
     If no specialized skill is needed, return 'general'.
     """
@@ -44,7 +46,10 @@ defmodule AOS.AgentOS.Roles.SkillSelector do
          |> Map.put(:selected_skills, selected_skills)}
 
       {:error, reason} ->
-        Logger.warning("[SkillSelector] Selection failed (#{inspect(reason)}). Falling back to general worker.")
+        Logger.warning(
+          "[SkillSelector] Selection failed (#{inspect(reason)}). Falling back to general worker."
+        )
+
         {:ok, input |> Map.put(:skills, ["general"]) |> Map.put(:selected_skills, [])}
     end
   end
@@ -52,9 +57,11 @@ defmodule AOS.AgentOS.Roles.SkillSelector do
   defp parse_skills(text, available_skills) do
     # Simple parsing logic
     names = available_skills |> Enum.map(& &1.name)
-    found = Enum.filter(names, fn name -> 
-      String.contains?(String.downcase(text), String.downcase(name))
-    end)
+
+    found =
+      Enum.filter(names, fn name ->
+        String.contains?(String.downcase(text), String.downcase(name))
+      end)
 
     if Enum.empty?(found), do: ["general"], else: found
   end

@@ -31,4 +31,12 @@ defmodule AOS.AgentOS.Policies.BudgetPolicyTest do
 
     assert {:error, :too_many_loops} = BudgetPolicy.check(%{execution_history: history}, :worker)
   end
+
+  test "read_only autonomy applies stricter budget cap" do
+    assert {:error, :out_of_budget} =
+             BudgetPolicy.check(
+               %{autonomy_level: "read_only", cost_usd: 0.75, execution_history: []},
+               :worker
+             )
+  end
 end

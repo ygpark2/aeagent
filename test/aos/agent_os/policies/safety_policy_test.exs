@@ -5,7 +5,10 @@ defmodule AOS.AgentOS.Policies.SafetyPolicyTest do
 
   test "blocks pii in result" do
     assert {:error, :pii_detected} =
-             SafetyPolicy.check(%{task: "summarize", result: "email me at test@example.com"}, :worker)
+             SafetyPolicy.check(
+               %{task: "summarize", result: "email me at test@example.com"},
+               :worker
+             )
   end
 
   test "blocks dangerous destructive intent in task" do

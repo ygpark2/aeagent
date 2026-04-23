@@ -11,11 +11,12 @@ defmodule AOS.AgentOS.MCP.Manager do
   end
 
   def all_tools do
-    internal_tools = case AOS.AgentOS.MCP.Internal.Shell.list_tools() do
-      {:ok, %{"tools" => tools}} -> Enum.map(tools, &Map.put(&1, "server_id", "internal"))
-      _ -> []
-    end
-    
+    internal_tools =
+      case AOS.AgentOS.MCP.Internal.Shell.list_tools() do
+        {:ok, %{"tools" => tools}} -> Enum.map(tools, &Map.put(&1, "server_id", "internal"))
+        _ -> []
+      end
+
     external_tools = GenServer.call(__MODULE__, :all_tools)
     internal_tools ++ external_tools
   end
@@ -31,26 +32,31 @@ defmodule AOS.AgentOS.MCP.Manager do
   @impl true
   def init(_) do
     servers = Application.get_env(:aos, :mcp_servers, %{})
-    
-    clients = Enum.reduce(servers, %{}, fn {id, opts}, acc ->
-      case Client.start_link(Keyword.put(opts, :name, nil)) do
-        {:ok, pid} -> Map.put(acc, id, pid)
-        _ -> acc
-      end
-    end)
+
+    clients =
+      Enum.reduce(servers, %{}, fn {id, opts}, acc ->
+        case Client.start_link(Keyword.put(opts, :name, nil)) do
+          {:ok, pid} -> Map.put(acc, id, pid)
+          _ -> acc
+        end
+      end)
 
     {:ok, %{clients: clients}}
   end
 
   @impl true
   def handle_call(:all_tools, _from, state) do
-    tools = Enum.flat_map(state.clients, fn {id, pid} ->
-      case Client.list_tools(pid) do
-        {:ok, %{"tools" => tools}} -> 
-          Enum.map(tools, &Map.put(&1, "server_id", id))
-        _ -> []
-      end
-    end)
+    tools =
+      Enum.flat_map(state.clients, fn {id, pid} ->
+        case Client.list_tools(pid) do
+          {:ok, %{"tools" => tools}} ->
+            Enum.map(tools, &Map.put(&1, "server_id", id))
+
+          _ ->
+            []
+        end
+      end)
+
     {:reply, tools, state}
   end
 

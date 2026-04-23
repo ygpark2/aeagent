@@ -6,5 +6,5 @@ defmodule AOS.AgentOS.Role do
   @callback id() :: atom()
   @callback schema() :: map()
   @callback run(input :: map(), ctx :: map()) ::
-    {:ok, result :: map()} | {:error, reason :: term()}
+              {:ok, result :: map()} | {:error, reason :: term()}
 end

@@ -6,7 +6,8 @@ defmodule AOS.Repo.Migrations.CreateAgentSkills do
       add :name, :string, null: false
       add :description, :text
       add :instructions, :text
-      add :capabilities, :text # Store as JSON string for SQLite
+      # Store as JSON string for SQLite
+      add :capabilities, :text
       add :is_active, :boolean, default: true, null: false
 
       timestamps()

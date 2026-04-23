@@ -9,14 +9,14 @@ defmodule AOS.AgentOS.Skills.Manager do
   alias AOS.AgentOS.Skills.Skill
 
   def list_active_skills do
-    db_skills = 
+    db_skills =
       Skill
       |> where([s], s.is_active == true)
       |> Repo.all()
       |> Enum.map(&normalize_skill/1)
 
     fs_skills = list_fs_skills()
-    
+
     (fs_skills ++ db_skills)
     |> Enum.uniq_by(& &1.name)
   end
@@ -28,14 +28,21 @@ defmodule AOS.AgentOS.Skills.Manager do
 
   defp list_fs_skills do
     skills_dir = Path.join(:code.priv_dir(:aos), "agent_os/skills")
-    
+
     if File.dir?(skills_dir) do
       File.ls!(skills_dir)
-      |> Enum.map(fn skill_id -> 
+      |> Enum.map(fn skill_id ->
         skill_path = Path.join(skills_dir, skill_id)
+
         if File.dir?(skill_path) do
           {description, instructions} = read_skill_markdown(skill_path)
-          %{name: skill_id, description: description, instructions: instructions, capabilities: []}
+
+          %{
+            name: skill_id,
+            description: description,
+            instructions: instructions,
+            capabilities: []
+          }
         end
       end)
       |> Enum.filter(& &1)
@@ -67,7 +74,7 @@ defmodule AOS.AgentOS.Skills.Manager do
     names = MapSet.new(names)
 
     list_active_skills()
-    |> Enum.filter(&(MapSet.member?(names, &1.name)))
+    |> Enum.filter(&MapSet.member?(names, &1.name))
   end
 
   defp normalize_skill(%Skill{} = skill) do
