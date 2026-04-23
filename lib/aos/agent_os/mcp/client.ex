@@ -22,13 +22,14 @@ defmodule AOS.AgentOS.MCP.Client do
   def init(opts) do
     command = Keyword.fetch!(opts, :command)
     args = Keyword.get(opts, :args, [])
-    
-    port = Port.open({:spawn_executable, System.find_executable(command)}, [
-      :binary,
-      :exit_status,
-      :use_stdio,
-      args: args
-    ])
+
+    port =
+      Port.open({:spawn_executable, System.find_executable(command)}, [
+        :binary,
+        :exit_status,
+        :use_stdio,
+        args: args
+      ])
 
     state = %{
       port: port,
@@ -59,10 +60,11 @@ defmodule AOS.AgentOS.MCP.Client do
   def handle_info({port, {:data, data}}, %{port: port} = state) do
     new_buffer = state.buffer <> data
     {messages, remaining_buffer} = parse_buffer(new_buffer, [])
-    
-    new_state = Enum.reduce(messages, %{state | buffer: remaining_buffer}, fn msg, acc ->
-      handle_mcp_message(msg, acc)
-    end)
+
+    new_state =
+      Enum.reduce(messages, %{state | buffer: remaining_buffer}, fn msg, acc ->
+        handle_mcp_message(msg, acc)
+      end)
 
     {:noreply, new_state}
   end
@@ -76,16 +78,17 @@ defmodule AOS.AgentOS.MCP.Client do
 
   defp send_request(state, method, params) do
     id = state.next_id
+
     request = %{
       jsonrpc: "2.0",
       id: id,
       method: method,
       params: params
     }
-    
+
     payload = Jason.encode!(request) <> "\n"
     Port.command(state.port, payload)
-    
+
     {%{state | next_id: id + 1}, id}
   end
 
@@ -100,18 +103,24 @@ defmodule AOS.AgentOS.MCP.Client do
     case Jason.decode(msg) do
       {:ok, %{"id" => id, "result" => result}} ->
         case Map.pop(state.requests, id) do
-          {nil, _} -> state
+          {nil, _} ->
+            state
+
           {from, remaining_requests} ->
             GenServer.reply(from, {:ok, result})
             %{state | requests: remaining_requests}
         end
+
       {:ok, %{"id" => id, "error" => error}} ->
         case Map.pop(state.requests, id) do
-          {nil, _} -> state
+          {nil, _} ->
+            state
+
           {from, remaining_requests} ->
             GenServer.reply(from, {:error, error})
             %{state | requests: remaining_requests}
         end
+
       _ ->
         # Log unexpected messages (notifications, logs, etc)
         # Logger.debug("MCP Notification: #{msg}")

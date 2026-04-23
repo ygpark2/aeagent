@@ -12,7 +12,8 @@ defmodule AOS.AgentOS.Core.NodeRegistry do
     "worker" => %{mod: LLMWorker, domain: :general},
     "evaluator" => %{mod: LLMEvaluator, domain: :general},
     "reporter" => %{mod: Reporter, domain: :all},
-    "delegator" => %{mod: Delegator, domain: :all} # Can delegate to any specialized sub-graph
+    # Can delegate to any specialized sub-graph
+    "delegator" => %{mod: Delegator, domain: :all}
   }
 
   def get_node(id), do: get_in(@nodes, [id, :mod])

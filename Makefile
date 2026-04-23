@@ -45,7 +45,7 @@ help:
 	.PHONY: help start stop restart reset setup build clean local-setup local-server local-stop local-iex
 
 STACK_NAME := aos-stack
-COMPOSE_FILE := deploy/docker-stack.dev.yml
+COMPOSE_FILE := deploy/stack.dev.yml
 
 # Build the docker image locally
 build-image:

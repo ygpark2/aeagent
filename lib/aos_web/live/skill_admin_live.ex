@@ -8,21 +8,28 @@ defmodule AOSWeb.SkillAdminLive do
     if connected?(socket) do
       skills = Manager.list_all_skills()
       changeset = Skill.changeset(%Skill{}, %{})
-      
-      {:ok, assign(socket, 
-        skills: skills, 
-        changeset: changeset,
-        editing_id: nil,
-        full_width: true
-      ), layout: {AOSWeb.LayoutView, "admin.html"}}
+
+      {:ok,
+       assign(socket,
+         skills: skills,
+         changeset: changeset,
+         editing_id: nil,
+         full_width: true
+       ), layout: {AOSWeb.LayoutView, "admin.html"}}
     else
-      {:ok, assign(socket, skills: [], changeset: Skill.changeset(%Skill{}, %{}), editing_id: nil, full_width: true)}
+      {:ok,
+       assign(socket,
+         skills: [],
+         changeset: Skill.changeset(%Skill{}, %{}),
+         editing_id: nil,
+         full_width: true
+       )}
     end
   end
 
   @impl true
   def handle_event("validate", %{"skill" => skill_params}, socket) do
-    changeset = 
+    changeset =
       %Skill{}
       |> Skill.changeset(skill_params)
       |> Map.put(:action, :validate)
@@ -34,8 +41,8 @@ defmodule AOSWeb.SkillAdminLive do
   def handle_event("save", %{"skill" => skill_params}, socket) do
     case Manager.register_skill(skill_params) do
       {:ok, _skill} ->
-        {:noreply, 
-         socket 
+        {:noreply,
+         socket
          |> put_flash(:info, "Skill created successfully")
          |> assign(skills: Manager.list_all_skills(), changeset: Skill.changeset(%Skill{}, %{}))}
 

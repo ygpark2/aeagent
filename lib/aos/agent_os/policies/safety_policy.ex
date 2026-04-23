@@ -6,10 +6,14 @@ defmodule AOS.AgentOS.Policies.SafetyPolicy do
   require Logger
 
   @pii_patterns [
-    ~r/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/, # Email
-    ~r/\d{3}-\d{3,4}-\d{4}/,                          # Phone (KR)
-    ~r/\b\d{3}-\d{2}-\d{4}\b/,                        # SSN
-    ~r/\b(?:\d[ -]*?){13,16}\b/                       # Payment card-like string
+    # Email
+    ~r/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/,
+    # Phone (KR)
+    ~r/\d{3}-\d{3,4}-\d{4}/,
+    # SSN
+    ~r/\b\d{3}-\d{2}-\d{4}\b/,
+    # Payment card-like string
+    ~r/\b(?:\d[ -]*?){13,16}\b/
   ]
 
   @dangerous_terms ~w(password secret api_key access_token private_key ssh_key rm -rf sudo shutdown reboot mkfs dd format wipe drop table delete from)

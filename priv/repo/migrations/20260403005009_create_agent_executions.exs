@@ -7,7 +7,8 @@ defmodule AOS.Repo.Migrations.CreateAgentExecutions do
       add :domain, :string
       add :task, :text
       add :success, :boolean, default: false
-      add :execution_log, :map  # JSON list of steps
+      # JSON list of steps
+      add :execution_log, :map
       add :final_result, :text
 
       timestamps()

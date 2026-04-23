@@ -6,7 +6,11 @@ defmodule AOSWeb.AgentDashboardLiveTest do
   test "renders approval request and approves tool execution", %{conn: conn} do
     {:ok, view, _html} = live(conn, "/agent")
 
-    send(view.pid, {:request_tool_confirmation, "approval-123", "execute_command", %{"command" => "git"}, self()})
+    send(
+      view.pid,
+      {:request_tool_confirmation, "approval-123", "execute_command", %{"command" => "git"},
+       self()}
+    )
 
     assert render(view) =~ "Security Check"
     assert render(view) =~ "execute_command"
@@ -22,7 +26,10 @@ defmodule AOSWeb.AgentDashboardLiveTest do
   test "renders approval request and rejects tool execution", %{conn: conn} do
     {:ok, view, _html} = live(conn, "/agent")
 
-    send(view.pid, {:request_tool_confirmation, "approval-456", "write_file", %{"path" => "tmp.txt"}, self()})
+    send(
+      view.pid,
+      {:request_tool_confirmation, "approval-456", "write_file", %{"path" => "tmp.txt"}, self()}
+    )
 
     assert render(view) =~ "write_file"
 
@@ -37,7 +44,11 @@ defmodule AOSWeb.AgentDashboardLiveTest do
   test "updates inspection pane when tool result includes inspection payload", %{conn: conn} do
     {:ok, view, _html} = live(conn, "/agent")
 
-    send(view.pid, {:workflow_step_completed, "Tool: write_file", %{result: %{inspection: "File: lib/demo.ex\n+ line"}}})
+    send(
+      view.pid,
+      {:workflow_step_completed, "Tool: write_file",
+       %{result: %{inspection: "File: lib/demo.ex\n+ line"}}}
+    )
 
     html = render(view)
     assert html =~ "Inspection Pane"

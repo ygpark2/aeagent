@@ -8,12 +8,14 @@ defmodule AOS.AgentOS.Core.EngineTest do
       before_count = Repo.one(from e in "agent_executions", select: count(e.id))
 
       # 1. Build a simple Graph
-      graph = Graph.new(:test_simple)
+      graph =
+        Graph.new(:test_simple)
         |> Graph.add_node(:worker, MockWorker)
         |> Graph.add_node(:evaluator, MockEvaluator)
         |> Graph.set_initial(:worker)
         |> Graph.add_transition(:worker, :success, :evaluator)
-        |> Graph.add_transition(:evaluator, :pass, nil) # End
+        # End
+        |> Graph.add_transition(:evaluator, :pass, nil)
 
       # 2. Run it
       context = %{task: "Simple Task", force_fail: false}
@@ -31,12 +33,14 @@ defmodule AOS.AgentOS.Core.EngineTest do
 
     test "handles loops (Outcome-driven refinement)" do
       # 1. Build a Graph with a loop
-      graph = Graph.new(:test_loop)
+      graph =
+        Graph.new(:test_loop)
         |> Graph.add_node(:worker, MockWorker)
         |> Graph.add_node(:evaluator, MockEvaluator)
         |> Graph.set_initial(:worker)
         |> Graph.add_transition(:worker, :success, :evaluator)
-        |> Graph.add_transition(:evaluator, :fail, :worker) # The loop
+        # The loop
+        |> Graph.add_transition(:evaluator, :fail, :worker)
         |> Graph.add_transition(:evaluator, :pass, nil)
 
       # 2. Run it with force_fail set to true initially

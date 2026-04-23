@@ -7,17 +7,20 @@ defmodule AOS.AgentOS.Roles.IntentRouter do
 
   def run(input, _ctx) do
     message = Map.get(input, :message, "")
+
     prompt = """
     You are an intent router for an AI agent system.
     Analyze the user message and determine the intent.
     User message: "#{message}"
-    
+
     Respond ONLY with the intent name (e.g., coding, assistance, general).
     """
 
     case LLM.call(prompt, history: Map.get(input, :history, []), notify: Map.get(input, :notify)) do
       {:ok, intent} ->
-        {:ok, Map.merge(input, %{intent: String.trim(intent) |> String.downcase() |> String.to_atom()})}
+        {:ok,
+         Map.merge(input, %{intent: String.trim(intent) |> String.downcase() |> String.to_atom()})}
+
       {:error, reason} ->
         {:error, reason}
     end

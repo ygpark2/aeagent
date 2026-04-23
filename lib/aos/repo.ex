@@ -4,7 +4,7 @@ defmodule AOS.Repo do
   Get rid of this when the DB is gone / not used.
   """
 
-  @adapter (if Mix.env() in [:dev, :test], do: Ecto.Adapters.SQLite3, else: Ecto.Adapters.Postgres)
+  @adapter if Mix.env() in [:dev, :test], do: Ecto.Adapters.SQLite3, else: Ecto.Adapters.Postgres
 
   use Ecto.Repo,
     otp_app: :aos,

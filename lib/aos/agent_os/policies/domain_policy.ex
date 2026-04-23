@@ -15,10 +15,11 @@ defmodule AOS.AgentOS.Policies.DomainPolicy do
     # Check if the next node is intended to be a reporter
     # Note: next_node_id is an atom from the graph transitions
     if domain == :coding and next_node_id == :reporter do
-      has_evaluated = Enum.any?(history, fn step -> 
-        node_id = step[:node_id] || step["node_id"]
-        to_string(node_id) in ["evaluator", "reviewer", "reviewer_agent"]
-      end)
+      has_evaluated =
+        Enum.any?(history, fn step ->
+          node_id = step[:node_id] || step["node_id"]
+          to_string(node_id) in ["evaluator", "reviewer", "reviewer_agent"]
+        end)
 
       if not has_evaluated do
         Logger.error("[DomainPolicy] Coding task must be evaluated before reporting results!")

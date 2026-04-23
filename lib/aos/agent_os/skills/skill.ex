@@ -6,7 +6,8 @@ defmodule AOS.AgentOS.Skills.Skill do
     field :name, :string
     field :description, :string
     field :instructions, :string
-    field :capabilities, :string # Can be JSON string
+    # Can be JSON string
+    field :capabilities, :string
     field :is_active, :boolean, default: true
 
     timestamps()

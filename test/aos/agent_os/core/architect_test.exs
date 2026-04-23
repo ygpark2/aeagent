@@ -1,5 +1,6 @@
 defmodule AOS.AgentOS.Core.ArchitectTest do
-  use AOS.DataCase, async: false # Async false because we might be using LLM mock
+  # Async false because we might be using LLM mock
+  use AOS.DataCase, async: false
   alias AOS.AgentOS.Core.{Architect, Graph}
 
   describe "Agent Graph Architect" do
@@ -9,7 +10,7 @@ defmodule AOS.AgentOS.Core.ArchitectTest do
 
       assert %Graph{} = graph
       assert graph.initial_node != nil
-      
+
       # It should have nodes from the registry
       assert Map.has_key?(graph.nodes, graph.initial_node)
     end

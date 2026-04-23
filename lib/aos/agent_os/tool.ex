@@ -5,5 +5,5 @@ defmodule AOS.AgentOS.Tool do
 
   @callback id() :: atom()
   @callback run(args :: map(), ctx :: map()) ::
-    {:ok, result :: any()} | {:error, reason :: term()}
+              {:ok, result :: any()} | {:error, reason :: term()}
 end
