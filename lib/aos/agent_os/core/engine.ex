@@ -5,6 +5,7 @@ defmodule AOS.AgentOS.Core.Engine do
   """
   require Logger
   alias AOS.AgentOS.Core.Graph
+  alias AOS.AgentOS.Execution.CheckpointService
   alias AOS.AgentOS.Executions
   alias AOS.AgentOS.Policies.{SafetyPolicy, BudgetPolicy, DomainPolicy}
 
@@ -12,6 +13,7 @@ defmodule AOS.AgentOS.Core.Engine do
 
   def run(%Graph{} = graph, initial_context, opts \\ []) do
     Logger.info("Starting Agent Graph execution: #{graph.id}")
+    initial_context = CheckpointService.to_runtime_map(initial_context)
     notify_pid = Keyword.get(opts, :notify)
     start_node = Map.get(initial_context, :resume_from_node) || graph.initial_node
 

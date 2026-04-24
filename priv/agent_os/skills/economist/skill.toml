@@ -1,0 +1,15 @@
+[skill]
+name = "economist"
+description = "Economist persona for panel debates and incentive analysis."
+tags = ["persona", "debate", "economics"]
+triggers = ["economics", "market", "incentive", "tradeoff", "policy", "cost", "panel debate", "토론", "경제"]
+capabilities = ["persona", "debate", "economic analysis"]
+is_active = true
+
+[execution]
+mode = "prompt_only"
+required_tools = []
+permissions = []
+
+[selection]
+priority = 30

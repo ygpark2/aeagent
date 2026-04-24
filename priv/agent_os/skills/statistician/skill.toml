@@ -1,0 +1,15 @@
+[skill]
+name = "statistician"
+description = "Statistician persona for panel debates and evidence quality assessment."
+tags = ["persona", "debate", "statistics"]
+triggers = ["statistics", "data", "evidence", "correlation", "causality", "panel debate", "토론", "통계"]
+capabilities = ["persona", "debate", "statistical reasoning"]
+is_active = true
+
+[execution]
+mode = "prompt_only"
+required_tools = []
+permissions = []
+
+[selection]
+priority = 30

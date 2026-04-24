@@ -1,0 +1,15 @@
+[skill]
+name = "sociologist"
+description = "Sociologist persona for panel debates and structural social analysis."
+tags = ["persona", "debate", "sociology"]
+triggers = ["society", "social", "institution", "class", "norms", "panel debate", "토론", "사회"]
+capabilities = ["persona", "debate", "sociological analysis"]
+is_active = true
+
+[execution]
+mode = "prompt_only"
+required_tools = []
+permissions = []
+
+[selection]
+priority = 30

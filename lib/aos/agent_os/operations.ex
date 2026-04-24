@@ -3,6 +3,7 @@ defmodule AOS.AgentOS.Operations do
   Operational diagnostics and metrics aggregation helpers.
   """
   alias AOS.AgentOS.{Config, Operations.Store}
+  alias AOS.AgentOS.Operations.Config, as: OperationsConfig
 
   def doctor do
     db_ok? = Store.database_healthy?()
@@ -11,7 +12,7 @@ defmodule AOS.AgentOS.Operations do
       status: overall_status(db_ok?),
       checks: %{
         database: db_ok?,
-        endpoint_configured: Application.get_env(:aos, AOSWeb.Endpoint) != nil,
+        endpoint_configured: OperationsConfig.endpoint_configured?(),
         task_supervisor: Process.whereis(AOS.AgentOS.TaskSupervisor) != nil,
         mcp_manager: Process.whereis(AOS.AgentOS.MCP.Manager) != nil
       },

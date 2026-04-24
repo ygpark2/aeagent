@@ -82,7 +82,7 @@ defmodule AOS.AgentOS.Executions do
 
     if execution.status in allowed_statuses do
       checkpoint_context =
-        CheckpointService.checkpoint_context(
+        CheckpointService.checkpoint_resume_context(
           execution.id,
           Keyword.get(opts, :checkpoint_id),
           resume_mode

@@ -3,7 +3,7 @@ defmodule AOS.AgentOS.Core.NodeRegistry do
   A central registry of available nodes, now including the Delegator for MCT.
   """
   alias AOS.AgentOS.Roles.{IntentRouter, SkillSelector, Executor, Reporter}
-  alias AOS.AgentOS.Core.Nodes.{LLMWorker, LLMEvaluator, Delegator}
+  alias AOS.AgentOS.Core.Nodes.{LLMWorker, LLMEvaluator, Delegator, PanelDebate}
 
   @nodes %{
     "intent_router" => %{mod: IntentRouter, domain: :all},
@@ -12,6 +12,7 @@ defmodule AOS.AgentOS.Core.NodeRegistry do
     "worker" => %{mod: LLMWorker, domain: :general},
     "evaluator" => %{mod: LLMEvaluator, domain: :general},
     "reporter" => %{mod: Reporter, domain: :all},
+    "panel_debate" => %{mod: PanelDebate, domain: :all},
     # Can delegate to any specialized sub-graph
     "delegator" => %{mod: Delegator, domain: :all}
   }

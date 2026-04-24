@@ -1,0 +1,15 @@
+[skill]
+name = "historian"
+description = "Historian persona for panel debates and long-run contextual analysis."
+tags = ["persona", "debate", "history"]
+triggers = ["history", "historical", "precedent", "long term", "panel debate", "토론", "역사"]
+capabilities = ["persona", "debate", "historical analysis"]
+is_active = true
+
+[execution]
+mode = "prompt_only"
+required_tools = []
+permissions = []
+
+[selection]
+priority = 30

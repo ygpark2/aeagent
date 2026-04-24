@@ -26,6 +26,14 @@ defmodule AOS.AgentOS.Core.Architect do
           {:architect_status, "Designing workflow (Attempt #{current_retry + 1})..."}
         )
 
+    if panel_debate_task?(task) do
+      panel_debate_graph()
+    else
+      design_graph_with_llm(task, opts, current_retry, max_retries)
+    end
+  end
+
+  defp design_graph_with_llm(task, opts, current_retry, max_retries) do
     domain = DomainDetector.detect_domain(task)
     Logger.info("[Architect] Detected Domain: #{domain}")
 
@@ -68,6 +76,32 @@ defmodule AOS.AgentOS.Core.Architect do
     end
   end
 
+  defp panel_debate_task?(task) do
+    normalized = task |> to_string() |> String.downcase()
+
+    debate? =
+      Enum.any?(["debate", "panel", "discussion", "토론", "패널"], &String.contains?(normalized, &1))
+
+    persona? =
+      Enum.any?(
+        [
+          "historian",
+          "statistician",
+          "sociologist",
+          "psychologist",
+          "economist",
+          "역사학자",
+          "통계학자",
+          "사회학자",
+          "심리학자",
+          "경제학자"
+        ],
+        &String.contains?(normalized, &1)
+      )
+
+    debate? and persona?
+  end
+
   defp handle_retry(task, opts, current_retry, max_retries, reason) do
     if current_retry < max_retries do
       Logger.warning("[Architect] Design failed due to #{reason}. Retrying...")
@@ -84,6 +118,15 @@ defmodule AOS.AgentOS.Core.Architect do
     |> Graph.add_node(:reporter, AOS.AgentOS.Roles.Reporter)
     |> Graph.set_initial(:worker)
     |> Graph.add_transition(:worker, :success, :reporter)
+    |> Graph.add_transition(:reporter, :success, nil)
+  end
+
+  defp panel_debate_graph do
+    Graph.new(:panel_debate_graph)
+    |> Graph.add_node(:panel_debate, AOS.AgentOS.Core.Nodes.PanelDebate)
+    |> Graph.add_node(:reporter, AOS.AgentOS.Roles.Reporter)
+    |> Graph.set_initial(:panel_debate)
+    |> Graph.add_transition(:panel_debate, :success, :reporter)
     |> Graph.add_transition(:reporter, :success, nil)
   end
 end

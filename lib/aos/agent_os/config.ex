@@ -16,8 +16,6 @@ defmodule AOS.AgentOS.Config do
   def architect_max_retries, do: get(:architect_max_retries, 1)
   def domain_success_cap, do: get(:domain_success_cap, 1000)
   def default_autonomy_level, do: get(:default_autonomy_level, "supervised")
-  def slack_shared_secret, do: get(:slack_shared_secret, "dev-slack-secret")
-  def slack_signing_secret, do: get(:slack_signing_secret, "dev-slack-signing-secret")
 
   def slack_response_dispatcher,
     do: get(:slack_response_dispatcher) || AOS.AgentOS.Channels.SlackResponder

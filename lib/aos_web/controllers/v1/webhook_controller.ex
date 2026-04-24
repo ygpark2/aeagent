@@ -4,6 +4,7 @@ defmodule AOSWeb.V1.WebhookController do
 
   import Plug.Conn
 
+  alias AOS.AgentOS.Channels.SecurityConfig
   alias AOS.AgentOS.Executions
 
   action_fallback AOSWeb.FallbackController
@@ -35,7 +36,7 @@ defmodule AOSWeb.V1.WebhookController do
   end
 
   defp authorize_webhook(conn) do
-    configured = Application.get_env(:aos, :webhook_shared_secret, "dev-webhook-secret")
+    configured = SecurityConfig.webhook_shared_secret()
     provided = get_req_header(conn, "x-aos-webhook-secret") |> List.first()
 
     if provided == configured do

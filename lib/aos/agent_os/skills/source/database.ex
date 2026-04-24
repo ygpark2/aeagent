@@ -29,4 +29,10 @@ defmodule AOS.AgentOS.Skills.Source.Database do
     |> Skill.changeset(attrs)
     |> Repo.update()
   end
+
+  def delete_skill(%Skill{} = skill), do: Repo.delete(skill)
+
+  def toggle_active(%Skill{} = skill) do
+    update_skill(skill, %{is_active: !skill.is_active})
+  end
 end

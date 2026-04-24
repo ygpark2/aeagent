@@ -29,14 +29,20 @@ defmodule AOSWeb.AgentDashboardLive do
 
   @impl true
   def handle_event("approve_tool", %{"ref" => approval_ref}, socket) do
-    socket = resolve_tool_approval(socket, approval_ref, :approved, "Approved tool execution.")
-    {:noreply, socket}
+    {:noreply,
+     assign(
+       socket,
+       DashboardService.resolve_tool_approval(socket.assigns, approval_ref, :approved)
+     )}
   end
 
   @impl true
   def handle_event("reject_tool", %{"ref" => approval_ref}, socket) do
-    socket = resolve_tool_approval(socket, approval_ref, :rejected, "Rejected tool execution.")
-    {:noreply, socket}
+    {:noreply,
+     assign(
+       socket,
+       DashboardService.resolve_tool_approval(socket.assigns, approval_ref, :rejected)
+     )}
   end
 
   @impl true
@@ -52,7 +58,10 @@ defmodule AOSWeb.AgentDashboardLive do
 
   @impl true
   def handle_event("update_ui_settings", %{"ui" => params}, socket) do
-    {:noreply, assign(socket, ui_settings: merge_ui_settings(socket.assigns.ui_settings, params))}
+    {:noreply,
+     assign(socket,
+       ui_settings: DashboardService.merge_ui_settings(socket.assigns.ui_settings, params)
+     )}
   end
 
   @impl true
@@ -118,19 +127,31 @@ defmodule AOSWeb.AgentDashboardLive do
   end
 
   @impl true
+  def handle_info({:panel_debate_event, event}, socket) do
+    new_message = AgentDashboardPresenter.panel_debate_message(event)
+
+    {:noreply,
+     assign(socket,
+       messages: socket.assigns.messages ++ [new_message],
+       current_status: new_message.content
+     )}
+  end
+
+  @impl true
   def handle_info(
         {:request_tool_confirmation, approval_ref, tool_name, args, requester_pid},
         socket
       ) do
-    approval_msg = AgentDashboardPresenter.approval_message(approval_ref, tool_name, args)
-
-    pending_approvals = Map.put(socket.assigns.pending_approvals, approval_ref, requester_pid)
-
     {:noreply,
-     assign(socket,
-       messages: socket.assigns.messages ++ [approval_msg],
-       current_status: "Waiting for approval...",
-       pending_approvals: pending_approvals
+     assign(
+       socket,
+       DashboardService.receive_tool_approval_request(
+         socket.assigns,
+         approval_ref,
+         tool_name,
+         args,
+         requester_pid
+       )
      )}
   end
 
@@ -156,65 +177,10 @@ defmodule AOSWeb.AgentDashboardLive do
      assign(socket, messages: socket.assigns.messages ++ [new_message], current_status: content)}
   end
 
-  defp resolve_tool_approval(socket, approval_ref, decision, status_text) do
-    case Map.pop(socket.assigns.pending_approvals, approval_ref) do
-      {nil, pending_approvals} ->
-        assign(socket, pending_approvals: pending_approvals)
-
-      {requester_pid, pending_approvals} ->
-        send(requester_pid, {:tool_approval, approval_ref, decision})
-
-        updated_messages =
-          Enum.map(socket.assigns.messages, fn
-            %{approval_ref: ^approval_ref} = msg ->
-              %{msg | status: if(decision == :approved, do: "Approved", else: "Rejected")}
-
-            msg ->
-              msg
-          end)
-
-        assign(socket,
-          messages: updated_messages,
-          current_status: status_text,
-          pending_approvals: pending_approvals
-        )
-    end
-  end
-
   defp maybe_assign_inspection(socket, nil), do: socket
   defp maybe_assign_inspection(socket, inspection), do: assign(socket, active_diff: inspection)
 
   defp default_ui_settings do
     AgentDashboardPresenter.default_ui_settings()
   end
-
-  defp merge_ui_settings(current, params) do
-    Enum.reduce(params, current, fn {key, value}, acc ->
-      Map.put(acc, key, normalize_ui_setting(key, value))
-    end)
-  end
-
-  defp normalize_ui_setting(key, value)
-       when key in ["left_font_size", "center_font_size", "right_font_size", "input_font_size"] do
-    case Integer.parse(to_string(value)) do
-      {size, ""} -> max(12, min(size, 24))
-      _ -> Map.get(default_ui_settings(), key)
-    end
-  end
-
-  defp normalize_ui_setting("chat_width", value) do
-    case value do
-      width when width in ["75", "85", "90", "100"] -> width
-      _ -> "90"
-    end
-  end
-
-  defp normalize_ui_setting("message_density", value) do
-    case value do
-      density when density in ["compact", "comfortable", "relaxed"] -> density
-      _ -> "comfortable"
-    end
-  end
-
-  defp normalize_ui_setting(_key, value), do: value
 end

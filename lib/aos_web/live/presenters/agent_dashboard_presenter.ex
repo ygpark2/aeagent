@@ -20,6 +20,10 @@ defmodule AOSWeb.Live.Presenters.AgentDashboardPresenter do
   def workflow_error_message(node_id, reason),
     do: %{role: "system", content: "❌ Error at #{node_id}: #{inspect(reason)}", type: :system}
 
+  def panel_debate_message(event) do
+    %{role: "system", content: panel_debate_content(event), type: :system}
+  end
+
   def approval_message(approval_ref, tool_name, args) do
     %{
       role: "system",
@@ -93,6 +97,52 @@ defmodule AOSWeb.Live.Presenters.AgentDashboardPresenter do
   defp terminal_status("blocked"), do: "Blocked"
   defp terminal_status("failed"), do: "Failed"
   defp terminal_status(_), do: "Idle"
+
+  defp panel_debate_content(%{event: :started, topic: topic, personas: personas}) do
+    "Panel debate started for `#{topic}` with #{Enum.join(personas, ", ")}."
+  end
+
+  defp panel_debate_content(%{event: :round_started, round: round}) do
+    "Panel debate round #{round} started."
+  end
+
+  defp panel_debate_content(%{
+         event: :persona_started,
+         phase: phase,
+         round: round,
+         discipline: discipline
+       }) do
+    "#{discipline} started #{panel_phase_label(phase, round)}."
+  end
+
+  defp panel_debate_content(%{
+         event: :persona_completed,
+         phase: phase,
+         round: round,
+         discipline: discipline,
+         text: text
+       }) do
+    "#{discipline} completed #{panel_phase_label(phase, round)}:\n#{String.slice(to_string(text), 0, 700)}"
+  end
+
+  defp panel_debate_content(%{event: :consensus_check_started, round: round}) do
+    "Panel moderator checking consensus after round #{round}."
+  end
+
+  defp panel_debate_content(%{event: :consensus_checked, round: round, consensus: consensus}) do
+    reached = if Map.get(consensus, :reached?), do: "reached", else: "not reached"
+    "Panel consensus #{reached} after round #{round}: #{Map.get(consensus, :text)}"
+  end
+
+  defp panel_debate_content(%{event: :synthesis_started, stop_reason: reason}) do
+    "Panel moderator synthesizing final conclusion. Stop reason: #{reason}."
+  end
+
+  defp panel_debate_content(event), do: "Panel debate event: #{inspect(event)}"
+
+  defp panel_phase_label(:initial_position, _round), do: "initial position"
+  defp panel_phase_label(:revision, round), do: "revision round #{round}"
+  defp panel_phase_label(phase, _round), do: to_string(phase)
 
   defp extract_inspection(%{inspection: inspection}) when is_binary(inspection), do: inspection
 
