@@ -4,6 +4,7 @@ defmodule AOS.AgentOS.Execution.ArtifactRecorder do
   """
 
   alias AOS.AgentOS.Core.{Artifact, Execution}
+  alias AOS.AgentOS.Execution.ResumeContext
   alias AOS.Repo
 
   def persist_seed_artifacts(_execution, initial_context) when map_size(initial_context) == 0,
@@ -15,7 +16,7 @@ defmodule AOS.AgentOS.Execution.ArtifactRecorder do
       session_id: execution.session_id,
       kind: "resume_seed",
       label: "resume_seed",
-      payload: %{context: initial_context},
+      payload: %{context: serialize_resume_seed(initial_context)},
       position: 0
     })
   end
@@ -132,6 +133,14 @@ defmodule AOS.AgentOS.Execution.ArtifactRecorder do
     }
   end
 
+  defp serialize_resume_seed(initial_context) do
+    initial_context
+    |> ResumeContext.from_map()
+    |> ResumeContext.to_map()
+    |> Map.update(:history, [], &serialize_history/1)
+    |> stringify_map_keys()
+  end
+
   defp serialize_history(history) when is_list(history) do
     Enum.map(history, fn
       {role, content} -> %{"role" => role, "content" => content}
@@ -139,5 +148,9 @@ defmodule AOS.AgentOS.Execution.ArtifactRecorder do
       %{role: _, content: _} = item -> %{"role" => item.role, "content" => item.content}
       other -> %{"role" => "unknown", "content" => inspect(other)}
     end)
+  end
+
+  defp stringify_map_keys(map) when is_map(map) do
+    Map.new(map, fn {key, value} -> {to_string(key), value} end)
   end
 end

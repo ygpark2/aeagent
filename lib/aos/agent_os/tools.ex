@@ -2,10 +2,7 @@ defmodule AOS.AgentOS.Tools do
   @moduledoc """
   Normalizes tool execution metadata and persists tool audit logs.
   """
-  import Ecto.Query
-
-  alias AOS.AgentOS.Core.ToolAudit
-  alias AOS.Repo
+  alias AOS.AgentOS.ToolUse.Store
 
   @default_permission_tools %{
     "file_read" => ["ls", "read_file", "grep_search", "list_codebase_structure"],
@@ -131,38 +128,14 @@ defmodule AOS.AgentOS.Tools do
   end
 
   def create_audit(attrs) do
-    %ToolAudit{}
-    |> ToolAudit.changeset(attrs)
-    |> Repo.insert()
+    Store.create_audit(attrs)
   end
 
   def list_audits(execution_id) do
-    ToolAudit
-    |> where([a], a.execution_id == ^execution_id)
-    |> order_by([a], asc: a.inserted_at)
-    |> Repo.all()
+    Store.list_audits(execution_id)
   end
 
-  def serialize_audit(%ToolAudit{} = audit) do
-    %{
-      id: audit.id,
-      execution_id: audit.execution_id,
-      session_id: audit.session_id,
-      server_id: audit.server_id,
-      tool_name: audit.tool_name,
-      risk_tier: audit.risk_tier,
-      status: audit.status,
-      approval_required: audit.approval_required,
-      approval_status: audit.approval_status,
-      arguments: audit.arguments,
-      normalized_result: audit.normalized_result,
-      error_message: audit.error_message,
-      attempts: audit.attempts,
-      started_at: audit.started_at,
-      finished_at: audit.finished_at,
-      inserted_at: audit.inserted_at
-    }
-  end
+  def serialize_audit(audit), do: Store.serialize_audit(audit)
 
   defp default_metadata,
     do: %{risk_tier: "medium", requires_confirmation: false, retryable: false}
