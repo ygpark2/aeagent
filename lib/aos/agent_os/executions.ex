@@ -197,6 +197,8 @@ defmodule AOS.AgentOS.Executions do
         Keyword.get(opts, :initial_context, %{})
       )
 
+    runtime_initial_context = CheckpointService.to_runtime_map(stored_initial_context)
+
     session_id = Keyword.get(opts, :session_id)
 
     history =
@@ -204,11 +206,11 @@ defmodule AOS.AgentOS.Executions do
       |> Keyword.get(:history, [])
       |> HistoryService.effective_history(session_id, exclude_execution_id: execution_id)
       |> case do
-        [] -> HistoryService.restore_history(get_in(stored_initial_context, [:history]))
+        [] -> HistoryService.restore_history(get_in(runtime_initial_context, [:history]))
         value -> value
       end
 
-    initial_context = stored_initial_context
+    initial_context = runtime_initial_context
     autonomy_level = AOS.AgentOS.Autonomy.normalize_level(Keyword.get(opts, :autonomy_level))
     graph = graph_builder.(task, notify: notify_pid)
     domain = HistoryService.infer_domain(graph)

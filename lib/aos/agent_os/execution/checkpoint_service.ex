@@ -35,11 +35,12 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
     end
   end
 
+  def to_runtime_map(%ResumeContext{} = context), do: ResumeContext.to_map(context)
+  def to_runtime_map(context) when is_map(context), do: context
+
   def initial_context_for_run(_execution_id, initial_context)
       when map_size(initial_context) > 0 do
-    initial_context
-    |> deserialize_resume_context()
-    |> ResumeContext.to_map()
+    deserialize_resume_context(initial_context)
   end
 
   def initial_context_for_run(execution_id, initial_context) do
@@ -52,16 +53,16 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
           |> Map.get(:payload, %{})
           |> payload_map("context")
           |> deserialize_resume_context()
-          |> ResumeContext.to_map()
-          |> Map.merge(initial_context)
+          |> merge_initial_context(initial_context)
 
         execution.trigger_kind == "resume" and execution.source_execution_id ->
           execution.source_execution_id
           |> checkpoint_context(nil, @default_resume_mode)
-          |> Map.merge(initial_context)
+          |> deserialize_resume_context()
+          |> merge_initial_context(initial_context)
 
         true ->
-          initial_context
+          deserialize_resume_context(initial_context)
       end
 
     ensure_resume_target(base_context, execution)
@@ -106,7 +107,7 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
     |> Repo.one()
   end
 
-  defp ensure_resume_target(%{resume_from_node: value} = context, _execution)
+  defp ensure_resume_target(%ResumeContext{resume_from_node: value} = context, _execution)
        when not is_nil(value),
        do: context
 
@@ -115,14 +116,13 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
          source_execution_id: source_execution_id
        })
        when not is_nil(source_execution_id) do
-    checkpoint_id = Map.get(context, :checkpoint_artifact_id)
-    resume_mode = Map.get(context, :resume_mode, @default_resume_mode)
+    checkpoint_id = context.checkpoint_artifact_id
+    resume_mode = context.resume_mode || @default_resume_mode
 
     source_execution_id
     |> checkpoint_context(checkpoint_id, resume_mode)
     |> deserialize_resume_context()
-    |> ResumeContext.to_map()
-    |> Map.merge(context)
+    |> merge_resume_context(context)
   end
 
   defp ensure_resume_target(context, _execution), do: context
@@ -140,6 +140,20 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
     |> Map.put("checkpoint_artifact_id", snapshot.artifact_id)
     |> Map.put("resume_mode", resume_mode)
     |> Map.put("resume_from_node", resume_from_node)
+    |> ResumeContext.from_map()
+  end
+
+  defp merge_initial_context(%ResumeContext{} = context, initial_context) do
+    context
+    |> ResumeContext.to_map()
+    |> Map.merge(initial_context)
+    |> ResumeContext.from_map()
+  end
+
+  defp merge_resume_context(%ResumeContext{} = source, %ResumeContext{} = target) do
+    source
+    |> ResumeContext.to_map()
+    |> Map.merge(ResumeContext.to_map(target))
     |> ResumeContext.from_map()
   end
 end

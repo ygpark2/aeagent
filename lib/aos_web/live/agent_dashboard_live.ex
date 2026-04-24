@@ -6,7 +6,7 @@ defmodule AOSWeb.AgentDashboardLive do
   use AOSWeb, :live_view
   require Logger
   alias AOS.AgentOS.DashboardService
-  alias AOS.AgentOS.Roles.Reporter
+  alias AOSWeb.Live.Presenters.AgentDashboardPresenter
 
   @impl true
   def mount(_params, _session, socket) do
@@ -64,7 +64,7 @@ defmodule AOSWeb.AgentDashboardLive do
 
   @impl true
   def handle_info({:architect_status, status}, socket) do
-    new_message = %{role: "system", content: "🧠 Architect: #{status}", type: :system}
+    new_message = AgentDashboardPresenter.architect_message(status)
 
     {:noreply,
      assign(socket, messages: socket.assigns.messages ++ [new_message], current_status: status)}
@@ -96,11 +96,7 @@ defmodule AOSWeb.AgentDashboardLive do
 
   @impl true
   def handle_info({:workflow_error, node_id, reason}, socket) do
-    new_message = %{
-      role: "system",
-      content: "❌ Error at #{node_id}: #{inspect(reason)}",
-      type: :system
-    }
+    new_message = AgentDashboardPresenter.workflow_error_message(node_id, reason)
 
     {:noreply,
      assign(socket,
@@ -111,12 +107,13 @@ defmodule AOSWeb.AgentDashboardLive do
 
   @impl true
   def handle_info({:execution_terminal, status, execution}, socket) do
-    messages = maybe_append_terminal_message(socket.assigns.messages, status, execution)
+    {messages, current_status} =
+      AgentDashboardPresenter.terminal_messages(socket.assigns.messages, status, execution)
 
     {:noreply,
      assign(socket,
        messages: messages,
-       current_status: terminal_status(status)
+       current_status: current_status
      )}
   end
 
@@ -125,14 +122,7 @@ defmodule AOSWeb.AgentDashboardLive do
         {:request_tool_confirmation, approval_ref, tool_name, args, requester_pid},
         socket
       ) do
-    approval_msg = %{
-      role: "system",
-      content: "🔐 Security Check: Allow '#{tool_name}'?\nArgs: #{inspect(args)}",
-      type: :approval,
-      tool: tool_name,
-      approval_ref: approval_ref,
-      status: "Pending"
-    }
+    approval_msg = AgentDashboardPresenter.approval_message(approval_ref, tool_name, args)
 
     pending_approvals = Map.put(socket.assigns.pending_approvals, approval_ref, requester_pid)
 
@@ -145,34 +135,14 @@ defmodule AOSWeb.AgentDashboardLive do
   end
 
   defp handle_step_completed(node_id, module, data, socket) do
-    node_str = to_string(node_id)
-    is_reporter = module == Reporter
-    inspection = extract_inspection(data)
-
-    content =
-      cond do
-        is_reporter ->
-          Map.get(data, :result, "Task completed.")
-
-        module == AOS.AgentOS.Core.Nodes.LLMEvaluator ->
-          outcome = Map.get(data, :last_outcome)
-          "🔍 Evaluation: **#{String.upcase(to_string(outcome))}**"
-
-        String.starts_with?(node_str, "Tool:") ->
-          "✅ #{node_str} finished."
-
-        true ->
-          "✅ Completed: #{node_str}"
-      end
-
-    type = if is_reporter, do: :chat, else: :system
-    new_message = %{role: "assistant", content: content, type: type}
+    {new_message, status_text, inspection} =
+      AgentDashboardPresenter.step_completed_message(node_id, module, data)
 
     socket =
       socket
       |> assign(
         messages: socket.assigns.messages ++ [new_message],
-        current_status: "Finished #{node_str}"
+        current_status: status_text
       )
       |> maybe_assign_inspection(inspection)
 
@@ -180,12 +150,7 @@ defmodule AOSWeb.AgentDashboardLive do
   end
 
   defp handle_step_started(name, socket) do
-    content =
-      if String.starts_with?(name, "Tool:"),
-        do: "🛠️ Starting: #{name}",
-        else: "⚙️ Executing: #{name}..."
-
-    new_message = %{role: "system", content: content, type: :system}
+    {new_message, content} = AgentDashboardPresenter.step_started_message(name)
 
     {:noreply,
      assign(socket, messages: socket.assigns.messages ++ [new_message], current_status: content)}
@@ -216,60 +181,11 @@ defmodule AOSWeb.AgentDashboardLive do
     end
   end
 
-  defp extract_inspection(%{inspection: inspection}) when is_binary(inspection), do: inspection
-
-  defp extract_inspection(%{result: %{inspection: inspection}}) when is_binary(inspection),
-    do: inspection
-
-  defp extract_inspection(_), do: nil
-
   defp maybe_assign_inspection(socket, nil), do: socket
   defp maybe_assign_inspection(socket, inspection), do: assign(socket, active_diff: inspection)
 
-  defp terminal_message("blocked", execution) do
-    %{
-      role: "system",
-      content: "⛔ Blocked: #{execution.error_message || execution.task}",
-      type: :system
-    }
-  end
-
-  defp terminal_message("failed", execution) do
-    %{
-      role: "system",
-      content: "❌ Failed: #{execution.error_message || execution.task}",
-      type: :system
-    }
-  end
-
-  defp terminal_message(_status, execution) do
-    %{
-      role: "system",
-      content: "Execution finished: #{execution.status}",
-      type: :system
-    }
-  end
-
-  defp maybe_append_terminal_message(messages, "succeeded", _execution), do: messages
-
-  defp maybe_append_terminal_message(messages, status, execution) do
-    messages ++ [terminal_message(status, execution)]
-  end
-
-  defp terminal_status("succeeded"), do: "Idle"
-  defp terminal_status("blocked"), do: "Blocked"
-  defp terminal_status("failed"), do: "Failed"
-  defp terminal_status(_status), do: "Idle"
-
   defp default_ui_settings do
-    %{
-      "left_font_size" => 15,
-      "center_font_size" => 16,
-      "right_font_size" => 15,
-      "input_font_size" => 17,
-      "message_density" => "comfortable",
-      "chat_width" => "90"
-    }
+    AgentDashboardPresenter.default_ui_settings()
   end
 
   defp merge_ui_settings(current, params) do

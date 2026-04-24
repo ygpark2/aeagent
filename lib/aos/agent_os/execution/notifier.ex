@@ -4,6 +4,7 @@ defmodule AOS.AgentOS.Execution.Notifier do
   """
 
   alias AOS.AgentOS.Channels.SlackResponder
+  alias AOS.AgentOS.Config
 
   def notify_terminal_event(context, execution) do
     case Map.get(context, :notify) do
@@ -23,9 +24,7 @@ defmodule AOS.AgentOS.Execution.Notifier do
     if execution.session_id do
       session = session_fetcher.(execution.session_id)
 
-      dispatcher =
-        Application.get_env(:aos, :slack_response_dispatcher) ||
-          SlackResponder
+      dispatcher = Config.slack_response_dispatcher() || SlackResponder
 
       Task.Supervisor.start_child(AOS.AgentOS.TaskSupervisor, fn ->
         dispatcher.dispatch(session, execution)

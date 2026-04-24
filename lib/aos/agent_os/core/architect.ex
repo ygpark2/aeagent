@@ -17,7 +17,7 @@ defmodule AOS.AgentOS.Core.Architect do
   def build_graph(task, opts) do
     notify_pid = Keyword.get(opts, :notify)
     current_retry = Keyword.get(opts, :retry_count, 0)
-    max_retries = Application.get_env(:aos, :architect_max_retries, 1)
+    max_retries = AOS.AgentOS.Config.architect_max_retries()
 
     if notify_pid,
       do:

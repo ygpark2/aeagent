@@ -27,7 +27,7 @@ defmodule AOS.AgentOS.Autonomy do
   def levels, do: Map.keys(@levels)
 
   def default_level do
-    Application.get_env(:aos, :default_autonomy_level, "supervised")
+    AOS.AgentOS.Config.default_autonomy_level()
   end
 
   def normalize_level(level) when is_atom(level), do: normalize_level(to_string(level))

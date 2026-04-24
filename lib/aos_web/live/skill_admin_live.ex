@@ -1,6 +1,7 @@
 defmodule AOSWeb.SkillAdminLive do
   use AOSWeb, :live_view
   alias AOS.AgentOS.Skills.{AdminService, Skill}
+  alias AOSWeb.Live.Presenters.SkillAdminPresenter
 
   @impl true
   def mount(_params, _session, socket) do
@@ -27,7 +28,7 @@ defmodule AOSWeb.SkillAdminLive do
       {:ok, _skill} ->
         {:noreply,
          socket
-         |> put_flash(:info, success_message(socket.assigns.editing_id))
+         |> put_flash(:info, SkillAdminPresenter.success_message(socket.assigns.editing_id))
          |> assign_skill_state()
          |> assign(changeset: AdminService.blank_changeset())}
 
@@ -74,13 +75,12 @@ defmodule AOSWeb.SkillAdminLive do
          |> assign_skill_state()}
 
       {:error, %{reason: :already_exists, preview: preview}} ->
+        conflict = SkillAdminPresenter.export_conflict(preview)
+
         {:noreply,
          socket
-         |> put_flash(
-           :error,
-           "Filesystem skill already exists. Review the preview or use force export."
-         )
-         |> assign(preview: %{title: "Export Preview", body: preview})}
+         |> put_flash(:error, conflict.flash)
+         |> assign(preview: conflict.preview)}
     end
   end
 
@@ -97,13 +97,12 @@ defmodule AOSWeb.SkillAdminLive do
         {:noreply, put_flash(socket, :error, "Filesystem skill not found")}
 
       {:error, %{reason: :already_exists, preview: preview}} ->
+        conflict = SkillAdminPresenter.import_conflict(preview)
+
         {:noreply,
          socket
-         |> put_flash(
-           :error,
-           "Database skill already exists. Review the preview or use force import."
-         )
-         |> assign(preview: %{title: "Import Preview", body: preview})}
+         |> put_flash(:error, conflict.flash)
+         |> assign(preview: conflict.preview)}
 
       {:error, changeset} ->
         {:noreply, assign(socket, changeset: changeset)}
@@ -162,7 +161,4 @@ defmodule AOSWeb.SkillAdminLive do
   def blank_fallback("", fallback), do: fallback
   def blank_fallback(nil, fallback), do: fallback
   def blank_fallback(value, _fallback), do: value
-
-  defp success_message(nil), do: "Skill created successfully"
-  defp success_message(_id), do: "Skill updated successfully"
 end
