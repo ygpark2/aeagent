@@ -12,6 +12,7 @@ defmodule AOS.Application do
     # {:ok, _} = EctoBootMigration.migrate(:aos)
     # Start the Prometheus exporter.
     AOS.Telemetry.MetricsSetup.setup()
+    AOS.AgentOS.ConfigValidator.validate!()
 
     children = [
       # Start the Ecto repository

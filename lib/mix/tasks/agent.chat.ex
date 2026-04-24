@@ -174,6 +174,10 @@ defmodule Mix.Tasks.Agent.Chat do
         print_step_completion(display_name, result_map, state)
         await_execution(execution_id, state)
 
+      {:panel_debate_event, event} ->
+        print_panel_event(event, state)
+        await_execution(execution_id, state)
+
       {:workflow_error, node_id, reason} ->
         Mix.shell().error("[error] #{node_id}: #{inspect(reason)}")
         await_execution(execution_id, state)
@@ -205,6 +209,54 @@ defmodule Mix.Tasks.Agent.Chat do
 
     print_status(message, state)
   end
+
+  defp print_panel_event(%{event: :started, topic: topic, personas: personas}, state) do
+    print_status("panel started #{inspect(topic)} with #{Enum.join(personas, ", ")}", state)
+  end
+
+  defp print_panel_event(%{event: :round_started, round: round}, state) do
+    print_status("panel round #{round} started", state)
+  end
+
+  defp print_panel_event(
+         %{event: :persona_started, discipline: discipline, phase: phase, round: round},
+         state
+       ) do
+    print_status("panel #{discipline} started #{panel_phase_label(phase, round)}", state)
+  end
+
+  defp print_panel_event(
+         %{
+           event: :persona_completed,
+           discipline: discipline,
+           phase: phase,
+           round: round,
+           text: text
+         },
+         state
+       ) do
+    print_status(
+      "panel #{discipline} completed #{panel_phase_label(phase, round)}: #{String.slice(to_string(text), 0, 240)}",
+      state
+    )
+  end
+
+  defp print_panel_event(%{event: :consensus_checked, round: round, consensus: consensus}, state) do
+    reached = if Map.get(consensus, :reached?), do: "reached", else: "not reached"
+    print_status("panel consensus #{reached} after round #{round}", state)
+  end
+
+  defp print_panel_event(%{event: :synthesis_started, stop_reason: reason}, state) do
+    print_status("panel synthesis started stop_reason=#{reason}", state)
+  end
+
+  defp print_panel_event(event, state) do
+    print_status("panel #{inspect(event)}", state)
+  end
+
+  defp panel_phase_label(:initial_position, _round), do: "initial position"
+  defp panel_phase_label(:revision, round), do: "revision round #{round}"
+  defp panel_phase_label(phase, _round), do: to_string(phase)
 
   defp print_status(message, %{logs_enabled: false}) do
     Mix.shell().info("[status] #{message}")

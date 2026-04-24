@@ -1,0 +1,15 @@
+[skill]
+name = "psychologist"
+description = "Psychologist persona for panel debates and behavioral analysis."
+tags = ["persona", "debate", "psychology"]
+triggers = ["psychology", "behavior", "motivation", "bias", "cognition", "panel debate", "토론", "심리"]
+capabilities = ["persona", "debate", "psychological analysis"]
+is_active = true
+
+[execution]
+mode = "prompt_only"
+required_tools = []
+permissions = []
+
+[selection]
+priority = 30

@@ -3,11 +3,8 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
   Restores and serializes checkpoint context for resumed executions.
   """
 
-  import Ecto.Query
-
   alias AOS.AgentOS.Core.Artifact
-  alias AOS.AgentOS.Execution.{CheckpointSnapshot, ResumeContext}
-  alias AOS.Repo
+  alias AOS.AgentOS.Execution.{CheckpointSnapshot, CheckpointStore, ResumeContext}
 
   @default_resume_mode "next_node"
   @resume_modes [@default_resume_mode, "checkpoint_node"]
@@ -22,16 +19,20 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
   def normalize_resume_mode(_mode), do: @default_resume_mode
 
   def checkpoint_context(execution_id, checkpoint_id \\ nil, resume_mode \\ nil) do
+    execution_id
+    |> checkpoint_resume_context(checkpoint_id, resume_mode)
+    |> ResumeContext.to_map()
+  end
+
+  def checkpoint_resume_context(execution_id, checkpoint_id \\ nil, resume_mode \\ nil) do
     resume_mode = normalize_resume_mode(resume_mode)
 
     case resolve_checkpoint(execution_id, checkpoint_id) do
       nil ->
-        %{}
+        %ResumeContext{}
 
       artifact ->
-        artifact
-        |> build_resume_context(resume_mode)
-        |> ResumeContext.to_map()
+        build_resume_context(artifact, resume_mode)
     end
   end
 
@@ -48,7 +49,7 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
 
     base_context =
       cond do
-        resume_seed = latest_resume_seed(execution.id) ->
+        resume_seed = CheckpointStore.latest_resume_seed(execution.id) ->
           resume_seed
           |> Map.get(:payload, %{})
           |> payload_map("context")
@@ -57,8 +58,7 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
 
         execution.trigger_kind == "resume" and execution.source_execution_id ->
           execution.source_execution_id
-          |> checkpoint_context(nil, @default_resume_mode)
-          |> deserialize_resume_context()
+          |> checkpoint_resume_context(nil, @default_resume_mode)
           |> merge_initial_context(initial_context)
 
         true ->
@@ -78,15 +78,11 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
   end
 
   defp resolve_checkpoint(_execution_id, checkpoint_id) when is_binary(checkpoint_id) do
-    Repo.get(Artifact, checkpoint_id)
+    CheckpointStore.get_artifact(checkpoint_id)
   end
 
   defp resolve_checkpoint(execution_id, _checkpoint_id) do
-    Artifact
-    |> where([a], a.execution_id == ^execution_id and a.kind == "checkpoint")
-    |> order_by([a], desc: a.position, desc: a.inserted_at)
-    |> limit(1)
-    |> Repo.one()
+    CheckpointStore.latest_checkpoint(execution_id)
   end
 
   defp payload_map(payload, key) do
@@ -98,14 +94,6 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
   end
 
   defp deserialize_resume_context(_context), do: %ResumeContext{}
-
-  defp latest_resume_seed(execution_id) do
-    Artifact
-    |> where([a], a.execution_id == ^execution_id and a.kind == "resume_seed")
-    |> order_by([a], desc: a.position, desc: a.inserted_at)
-    |> limit(1)
-    |> Repo.one()
-  end
 
   defp ensure_resume_target(%ResumeContext{resume_from_node: value} = context, _execution)
        when not is_nil(value),
@@ -120,8 +108,7 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
     resume_mode = context.resume_mode || @default_resume_mode
 
     source_execution_id
-    |> checkpoint_context(checkpoint_id, resume_mode)
-    |> deserialize_resume_context()
+    |> checkpoint_resume_context(checkpoint_id, resume_mode)
     |> merge_resume_context(context)
   end
 

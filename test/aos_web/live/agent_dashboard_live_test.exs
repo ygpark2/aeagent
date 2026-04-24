@@ -84,6 +84,26 @@ defmodule AOSWeb.AgentDashboardLiveTest do
     assert html =~ "boom"
   end
 
+  test "renders panel debate progress events", %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/agent")
+
+    send(
+      view.pid,
+      {:panel_debate_event,
+       %{
+         event: :persona_completed,
+         phase: :revision,
+         round: 2,
+         discipline: "Economist",
+         text: "The incentive structure changed after criticism."
+       }}
+    )
+
+    html = render(view)
+    assert html =~ "Economist completed revision round 2"
+    assert html =~ "incentive structure"
+  end
+
   test "switches right pane to settings tab", %{conn: conn} do
     {:ok, view, _html} = live(conn, "/agent")
 

@@ -5,6 +5,7 @@ defmodule AOSWeb.V1.SlackController do
   import Plug.Conn
 
   alias AOS.AgentOS.Config
+  alias AOS.AgentOS.Channels.SecurityConfig
   alias AOS.AgentOS.Executions
 
   action_fallback AOSWeb.FallbackController
@@ -54,13 +55,13 @@ defmodule AOSWeb.V1.SlackController do
   end
 
   defp valid_internal_secret?(conn) do
-    configured = Config.slack_shared_secret()
+    configured = SecurityConfig.slack_shared_secret()
     provided = get_req_header(conn, "x-aos-slack-secret") |> List.first()
     provided == configured
   end
 
   defp valid_slack_signature?(conn) do
-    signing_secret = Config.slack_signing_secret()
+    signing_secret = SecurityConfig.slack_signing_secret()
     signature = get_req_header(conn, "x-slack-signature") |> List.first()
     timestamp = get_req_header(conn, "x-slack-request-timestamp") |> List.first()
     raw_body = conn.assigns[:raw_body]
@@ -88,8 +89,12 @@ defmodule AOSWeb.V1.SlackController do
 
   defp stale_timestamp?(timestamp) do
     case Integer.parse(timestamp) do
-      {value, _} -> abs(System.system_time(:second) - value) > 60 * 5
-      :error -> true
+      {value, _} ->
+        abs(System.system_time(:second) - value) >
+          SecurityConfig.slack_signature_max_age_seconds()
+
+      :error ->
+        true
     end
   end
 
@@ -290,12 +295,7 @@ defmodule AOSWeb.V1.SlackController do
   end
 
   defp dashboard_url(execution_id) do
-    base_url =
-      Application.get_env(:aos, :base_url, "http://localhost:4000")
-      |> to_string()
-      |> String.trim_trailing("/")
-
-    "#{base_url}/agent?execution_id=#{execution_id}"
+    "#{Config.base_url()}/agent?execution_id=#{execution_id}"
   end
 
   defp slack_interactive_request?(params) do
