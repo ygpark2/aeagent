@@ -1,6 +1,7 @@
 defmodule AOS.AgentOS.MCP.Tools.Ls do
   @behaviour AOS.AgentOS.MCP.ToolAdapter
   alias AOS.AgentOS.MCP.Tools.Helpers
+  alias AOS.Runtime.CommandRunner
 
   @impl true
   def spec do
@@ -21,9 +22,10 @@ defmodule AOS.AgentOS.MCP.Tools.Ls do
     path = Map.get(args, "path") || "."
 
     with {:ok, expanded_path} <- Helpers.validate_workspace_path(path) do
-      case System.cmd("ls", ["-p", expanded_path]) do
-        {out, 0} -> {:ok, %{content: [%{type: "text", text: out}]}}
-        {err, _} -> {:error, err}
+      case CommandRunner.run("ls", ["-p", expanded_path]) do
+        {:ok, %{output: out, exit_code: 0}} -> {:ok, %{content: [%{type: "text", text: out}]}}
+        {:ok, %{output: err}} -> {:error, err}
+        {:error, reason} -> {:error, inspect(reason)}
       end
     end
   end

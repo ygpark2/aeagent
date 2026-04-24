@@ -5,6 +5,7 @@ defmodule AOS.AgentOS.LLM.Client do
 
   require Logger
 
+  alias AOS.AgentOS.Config
   alias AOS.AgentOS.LLM.Provider.{Local, OpenAI}
 
   @max_retries 3
@@ -22,7 +23,7 @@ defmodule AOS.AgentOS.LLM.Client do
   end
 
   defp do_call_raw(prompt, history, opts, retry_count) do
-    current_model = Keyword.get(opts, :model) || Application.get_env(:aos, :agent_model)
+    current_model = Keyword.get(opts, :model) || Config.agent_model()
 
     case provider().call(prompt, history, opts) do
       {:ok, result} ->
@@ -47,7 +48,7 @@ defmodule AOS.AgentOS.LLM.Client do
   defp handle_retry_raw(prompt, history, opts, current_model, retry_count) do
     if retry_count < @max_retries do
       new_model =
-        if Application.get_env(:aos, :cliproxy_api),
+        if Config.cliproxy_api?(),
           do: select_fallback_model(current_model),
           else: current_model
 
@@ -87,6 +88,6 @@ defmodule AOS.AgentOS.LLM.Client do
   end
 
   defp runtime_type do
-    Application.get_env(:aos, :agent_runtime_type, :api)
+    Config.runtime_type()
   end
 end

@@ -2,6 +2,8 @@ defmodule AOS.AgentOS.MCP.Tools.ExecuteCommand do
   @behaviour AOS.AgentOS.MCP.ToolAdapter
 
   require Logger
+  alias AOS.AgentOS.Config
+  alias AOS.Runtime.CommandRunner
 
   @allowed_commands ~w(git mix ls pwd echo cat sed grep rg find head tail wc)
   @dangerous_args ~w(--force --hard --delete -rf -fr /)
@@ -35,9 +37,10 @@ defmodule AOS.AgentOS.MCP.Tools.ExecuteCommand do
     with :ok <- validate_command(command, cmd_args) do
       Logger.info("Executing guarded command: #{command} #{inspect(cmd_args)}")
 
-      case System.cmd(command, cmd_args, cd: workspace_root()) do
-        {out, 0} -> {:ok, %{content: [%{type: "text", text: out}]}}
-        {out, code} -> {:error, "Exit code #{code}: #{out}"}
+      case CommandRunner.run(command, cmd_args, cd: workspace_root()) do
+        {:ok, %{output: out, exit_code: 0}} -> {:ok, %{content: [%{type: "text", text: out}]}}
+        {:ok, %{output: out, exit_code: code}} -> {:error, "Exit code #{code}: #{out}"}
+        {:error, reason} -> {:error, inspect(reason)}
       end
     end
   end
@@ -65,7 +68,6 @@ defmodule AOS.AgentOS.MCP.Tools.ExecuteCommand do
   end
 
   defp workspace_root do
-    Application.get_env(:aos, :workspace_root, File.cwd!())
-    |> Path.expand()
+    Config.workspace_root()
   end
 end

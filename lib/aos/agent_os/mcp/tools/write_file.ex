@@ -2,6 +2,7 @@ defmodule AOS.AgentOS.MCP.Tools.WriteFile do
   @behaviour AOS.AgentOS.MCP.ToolAdapter
   require Logger
   alias AOS.AgentOS.MCP.Tools.Helpers
+  alias AOS.Runtime.FileSystem
 
   @impl true
   def spec do
@@ -27,14 +28,14 @@ defmodule AOS.AgentOS.MCP.Tools.WriteFile do
       Logger.info("Writing file: #{expanded_path}")
 
       previous_content =
-        case File.read(expanded_path) do
+        case FileSystem.read(expanded_path) do
           {:ok, existing} -> existing
           _ -> nil
         end
 
-      expanded_path |> Path.dirname() |> File.mkdir_p!()
+      :ok = expanded_path |> Path.dirname() |> FileSystem.mkdir_p()
 
-      case File.write(expanded_path, content) do
+      case FileSystem.write(expanded_path, content) do
         :ok ->
           {:ok,
            %{

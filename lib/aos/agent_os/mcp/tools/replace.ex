@@ -1,6 +1,7 @@
 defmodule AOS.AgentOS.MCP.Tools.Replace do
   @behaviour AOS.AgentOS.MCP.ToolAdapter
   alias AOS.AgentOS.MCP.Tools.Helpers
+  alias AOS.Runtime.FileSystem
 
   @impl true
   def spec do
@@ -28,7 +29,7 @@ defmodule AOS.AgentOS.MCP.Tools.Replace do
   @impl true
   def call(%{"path" => path, "old_string" => old, "new_string" => new}) do
     with {:ok, expanded_path} <- Helpers.validate_workspace_path(path) do
-      case File.read(expanded_path) do
+      case FileSystem.read(expanded_path) do
         {:ok, content} ->
           parts = String.split(content, old)
 
@@ -39,7 +40,7 @@ defmodule AOS.AgentOS.MCP.Tools.Replace do
             2 ->
               new_content = Enum.join(parts, new)
 
-              case File.write(expanded_path, new_content) do
+              case FileSystem.write(expanded_path, new_content) do
                 :ok ->
                   {:ok,
                    %{
