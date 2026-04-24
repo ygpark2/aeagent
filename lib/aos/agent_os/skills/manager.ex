@@ -6,6 +6,7 @@ defmodule AOS.AgentOS.Skills.Manager do
   require Logger
   import Ecto.Query
   alias AOS.Repo
+  alias AOS.AgentOS.Skills.Codec.TOML
   alias AOS.AgentOS.Skills.Skill
 
   @default_priority 0
@@ -47,7 +48,7 @@ defmodule AOS.AgentOS.Skills.Manager do
     dry_run? = Keyword.get(opts, :dry_run, false)
     toml_path = Path.join(skill_path, "skill.toml")
     markdown_path = Path.join(skill_path, "SKILL.md")
-    toml_content = render_skill_toml(skill)
+    toml_content = TOML.encode_skill_metadata(skill)
     markdown_content = skill.instructions || default_skill_markdown(skill)
 
     preview =
@@ -203,8 +204,7 @@ defmodule AOS.AgentOS.Skills.Manager do
     if File.exists?(skill_toml) do
       skill_toml
       |> File.read!()
-      |> parse_simple_toml()
-      |> flatten_skill_metadata()
+      |> TOML.decode_skill_metadata()
     else
       %{}
     end
@@ -285,95 +285,6 @@ defmodule AOS.AgentOS.Skills.Manager do
 
   defp normalize_priority(_), do: @default_priority
 
-  defp flatten_skill_metadata(parsed) do
-    skill = Map.get(parsed, "skill", %{})
-    execution = Map.get(parsed, "execution", %{})
-    selection = Map.get(parsed, "selection", %{})
-
-    %{
-      name: skill["name"],
-      description: skill["description"],
-      tags: skill["tags"],
-      triggers: skill["triggers"],
-      capabilities: skill["capabilities"],
-      priority: selection["priority"],
-      execution_mode: execution["mode"],
-      permissions: execution["permissions"],
-      required_tools: execution["required_tools"]
-    }
-  end
-
-  defp parse_simple_toml(content) do
-    content
-    |> String.split("\n")
-    |> Enum.reduce({%{}, nil}, fn raw_line, {acc, section} ->
-      line =
-        raw_line
-        |> strip_comment()
-        |> String.trim()
-
-      cond do
-        line == "" ->
-          {acc, section}
-
-        Regex.match?(~r/^\[[A-Za-z0-9_.-]+\]$/, line) ->
-          [new_section] = Regex.run(~r/^\[([A-Za-z0-9_.-]+)\]$/, line, capture: :all_but_first)
-          {Map.put_new(acc, new_section, %{}), new_section}
-
-        String.contains?(line, "=") and is_binary(section) ->
-          [key, value] = String.split(line, "=", parts: 2)
-          parsed_value = parse_toml_value(String.trim(value))
-          updated_section = Map.put(Map.get(acc, section, %{}), String.trim(key), parsed_value)
-          {Map.put(acc, section, updated_section), section}
-
-        true ->
-          {acc, section}
-      end
-    end)
-    |> elem(0)
-  end
-
-  defp strip_comment(line) do
-    case String.split(line, "#", parts: 2) do
-      [before | _] -> before
-      [] -> line
-    end
-  end
-
-  defp parse_toml_value(value) do
-    trimmed = String.trim(value)
-
-    cond do
-      String.starts_with?(trimmed, "[") and String.ends_with?(trimmed, "]") ->
-        trimmed
-        |> String.trim_leading("[")
-        |> String.trim_trailing("]")
-        |> parse_toml_array()
-
-      String.starts_with?(trimmed, "\"") and String.ends_with?(trimmed, "\"") ->
-        trimmed
-        |> String.trim_leading("\"")
-        |> String.trim_trailing("\"")
-
-      trimmed in ["true", "false"] ->
-        trimmed == "true"
-
-      Regex.match?(~r/^-?\d+$/, trimmed) ->
-        String.to_integer(trimmed)
-
-      true ->
-        trimmed
-    end
-  end
-
-  defp parse_toml_array(""), do: []
-
-  defp parse_toml_array(content) do
-    content
-    |> String.split(",", trim: true)
-    |> Enum.map(&parse_toml_value/1)
-  end
-
   defp build_export_preview(skill_path, toml_path, markdown_path, toml_content, markdown_content) do
     toml_status = compare_file_status(toml_path, toml_content)
     markdown_status = compare_file_status(markdown_path, markdown_content)
@@ -448,28 +359,6 @@ defmodule AOS.AgentOS.Skills.Manager do
     }
   end
 
-  defp render_skill_toml(%Skill{} = skill) do
-    """
-    [skill]
-    name = "#{skill.name}"
-    description = "#{escape_toml(skill.description)}"
-    tags = #{render_toml_array(skill.tags)}
-    triggers = #{render_toml_array(skill.triggers)}
-    capabilities = #{render_toml_array(skill.capabilities)}
-    is_active = #{if(skill.is_active, do: "true", else: "false")}
-
-    [execution]
-    mode = "#{skill.execution_mode || "prompt_only"}"
-    required_tools = #{render_toml_array(skill.required_tools)}
-    permissions = #{render_toml_array(skill.permissions)}
-
-    [selection]
-    priority = #{skill.priority || @default_priority}
-    """
-    |> String.trim()
-    |> Kernel.<>("\n")
-  end
-
   defp default_skill_markdown(%Skill{} = skill) do
     """
     # #{skill.name}
@@ -481,23 +370,5 @@ defmodule AOS.AgentOS.Skills.Manager do
     """
     |> String.trim()
     |> Kernel.<>("\n")
-  end
-
-  defp render_toml_array(nil), do: "[]"
-
-  defp render_toml_array(value) do
-    value
-    |> normalize_list()
-    |> Enum.map_join(", ", fn item -> "\"#{escape_toml(item)}\"" end)
-    |> then(&"[#{&1}]")
-  end
-
-  defp escape_toml(nil), do: ""
-
-  defp escape_toml(value) do
-    value
-    |> to_string()
-    |> String.replace("\\", "\\\\")
-    |> String.replace("\"", "\\\"")
   end
 end
