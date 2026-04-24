@@ -3,7 +3,7 @@ defmodule AOS.AgentOS.Skills.AdminService do
   Application service for the admin skills UI.
   """
 
-  alias AOS.AgentOS.Skills.{Manager, Skill}
+  alias AOS.AgentOS.Skills.{ImportExport, Manager, Skill}
   alias AOS.AgentOS.Tools
   alias AOS.Repo
 
@@ -48,10 +48,12 @@ defmodule AOS.AgentOS.Skills.AdminService do
     Skill.changeset(skill, %{is_active: !skill.is_active}) |> Repo.update()
   end
 
-  def export_skill(id, opts \\ []), do: Manager.export_skill_to_filesystem(id, opts)
-  def preview_export(id), do: Manager.preview_export_skill_to_filesystem(id)
-  def import_skill(name, opts \\ []), do: Manager.import_skill_from_filesystem(name, opts)
-  def preview_import(name), do: Manager.preview_import_skill_from_filesystem(name)
+  def export_skill(id, opts \\ []),
+    do: id |> Manager.get_skill!() |> ImportExport.export_skill(opts)
+
+  def preview_export(id), do: id |> Manager.get_skill!() |> ImportExport.preview_export_skill()
+  def import_skill(name, opts \\ []), do: ImportExport.import_skill(name, opts)
+  def preview_import(name), do: ImportExport.preview_import_skill(name)
 
   def runtime_skills do
     Manager.list_active_skills()

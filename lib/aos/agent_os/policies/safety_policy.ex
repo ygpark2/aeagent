@@ -4,6 +4,7 @@ defmodule AOS.AgentOS.Policies.SafetyPolicy do
   """
   @behaviour AOS.AgentOS.Core.Policy
   require Logger
+  alias AOS.AgentOS.Policies.Config
 
   @pii_patterns [
     # Email
@@ -65,7 +66,7 @@ defmodule AOS.AgentOS.Policies.SafetyPolicy do
   defp dangerous_text?(_), do: false
 
   defp outside_workspace?(path) do
-    workspace_root = Application.get_env(:aos, :workspace_root, File.cwd!())
+    workspace_root = Config.workspace_root()
     expanded_path = Path.expand(path, workspace_root)
     expanded_root = Path.expand(workspace_root)
 

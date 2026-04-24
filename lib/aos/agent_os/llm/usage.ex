@@ -83,10 +83,10 @@ defmodule AOS.AgentOS.LLM.Usage do
 
   defp pricing_for_model(model) do
     configured =
-      Application.get_env(:aos, :llm_pricing, %{})
+      AOS.AgentOS.Config.llm_pricing()
       |> Map.new(fn {key, value} -> {to_string(key), value} end)
 
-    model_key = to_string(model || Application.get_env(:aos, :agent_model) || "default")
+    model_key = to_string(model || AOS.AgentOS.Config.agent_model() || "default")
     matched = Enum.find(configured, fn {key, _value} -> String.contains?(model_key, key) end)
 
     case matched do

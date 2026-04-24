@@ -11,7 +11,7 @@ defmodule AOS.AgentOS.Runtime.AIRuntime do
   end
 
   def predict(prompt, _opts \\ []) do
-    runtime_type = Application.get_env(:aos, :agent_runtime_type, :api)
+    runtime_type = AOS.AgentOS.Config.runtime_type()
 
     case runtime_type do
       :local ->
@@ -31,7 +31,7 @@ defmodule AOS.AgentOS.Runtime.AIRuntime do
     # Only load the model if we are in a FLAME worker or if explicitly told to.
     # This prevents the web node from consuming too much memory.
     if FLAME.Parent.get() do
-      model_name = Application.get_env(:aos, :agent_local_model)
+      model_name = AOS.AgentOS.Config.agent_local_model()
       Logger.info("[AIRuntime] Loading model on FLAME worker: #{model_name}")
 
       # Using a small model for default if not specified to avoid OOM

@@ -4,6 +4,7 @@ defmodule AOSWeb.V1.SlackController do
 
   import Plug.Conn
 
+  alias AOS.AgentOS.Config
   alias AOS.AgentOS.Executions
 
   action_fallback AOSWeb.FallbackController
@@ -53,13 +54,13 @@ defmodule AOSWeb.V1.SlackController do
   end
 
   defp valid_internal_secret?(conn) do
-    configured = Application.get_env(:aos, :slack_shared_secret, "dev-slack-secret")
+    configured = Config.slack_shared_secret()
     provided = get_req_header(conn, "x-aos-slack-secret") |> List.first()
     provided == configured
   end
 
   defp valid_slack_signature?(conn) do
-    signing_secret = Application.get_env(:aos, :slack_signing_secret, "dev-slack-signing-secret")
+    signing_secret = Config.slack_signing_secret()
     signature = get_req_header(conn, "x-slack-signature") |> List.first()
     timestamp = get_req_header(conn, "x-slack-request-timestamp") |> List.first()
     raw_body = conn.assigns[:raw_body]

@@ -65,7 +65,7 @@ defmodule AOS.AgentOS.Core.MemoryManager do
   end
 
   defp cap_domain_successes do
-    cap = Application.get_env(:aos, :domain_success_cap, 1000)
+    cap = AOS.AgentOS.Config.domain_success_cap()
     domains = NodeRegistry.all_domains()
 
     Enum.each(domains, fn domain ->

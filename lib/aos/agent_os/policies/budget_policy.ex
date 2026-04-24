@@ -4,28 +4,14 @@ defmodule AOS.AgentOS.Policies.BudgetPolicy do
   """
   @behaviour AOS.AgentOS.Core.Policy
   require Logger
-
-  @default_max_loops 5
-  # USD
-  @default_max_cost 5.0
+  alias AOS.AgentOS.Policies.Config
 
   @impl true
   def check(context, _next_node_id) do
     history = Map.get(context, :execution_history, [])
     autonomy_level = Map.get(context, :autonomy_level)
 
-    {max_loops, max_cost} =
-      if autonomy_level do
-        normalized = AOS.AgentOS.Autonomy.normalize_level(autonomy_level)
-
-        {AOS.AgentOS.Autonomy.max_loops(normalized),
-         AOS.AgentOS.Autonomy.max_cost_usd(normalized)}
-      else
-        {
-          Application.get_env(:aos, :max_agent_loops, @default_max_loops),
-          Application.get_env(:aos, :max_agent_cost_usd, @default_max_cost)
-        }
-      end
+    %{max_loops: max_loops, max_cost_usd: max_cost} = Config.budget_limits(autonomy_level)
 
     loop_counts =
       history
