@@ -42,6 +42,10 @@ old_admin_users = System.get_env("ADMIN_USERS_OLD") || admin_users
 
 config :aos,
   admin_users: admin_users,
+  admin_auth_provider: AOS.Admin.Credentials.EnvProvider,
+  admin_password: System.get_env("ADMIN_PASSWORD") || "admin",
+  admin_password_hash: System.get_env("ADMIN_PASSWORD_HASH"),
+  admin_username: System.get_env("ADMIN_USERNAME") || "admin",
   ecto_repos: [AOS.Repo],
   encryption_keys: System.get_env("ENCRYPTION_KEYS"),
   env: Mix.env(),
