@@ -28,7 +28,8 @@ defmodule AOS.AgentOS.Core.Nodes.LLMWorker do
            history: history,
            notify: notify_pid,
            execution_id: Map.get(context, :execution_id),
-           session_id: Map.get(context, :session_id)
+           session_id: Map.get(context, :session_id),
+           selected_skills: selected_skills
          ) do
       {:ok, %{text: result} = meta} ->
         usage = Map.get(meta, "usage", %{})

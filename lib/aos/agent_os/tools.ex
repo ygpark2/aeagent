@@ -7,6 +7,14 @@ defmodule AOS.AgentOS.Tools do
   alias AOS.AgentOS.Core.ToolAudit
   alias AOS.Repo
 
+  @default_permission_tools %{
+    "file_read" => ["ls", "read_file", "grep_search", "list_codebase_structure"],
+    "file_write" => ["write_file", "replace"],
+    "shell_exec" => ["execute_command"],
+    "web_search" => ["web_search"],
+    "web_fetch" => ["fetch_url"]
+  }
+
   @internal_tool_metadata %{
     "ls" => %{risk_tier: "low", requires_confirmation: false, retryable: false},
     "read_file" => %{risk_tier: "low", requires_confirmation: false, retryable: false},
@@ -28,6 +36,57 @@ defmodule AOS.AgentOS.Tools do
   end
 
   def metadata_for(_server_id, _tool_name), do: default_metadata()
+
+  def permitted_tools(all_tools, selected_skills) do
+    assisted_skills =
+      Enum.filter(selected_skills, &(Map.get(&1, :execution_mode, "prompt_only") == "assisted"))
+
+    case assisted_skills do
+      [] ->
+        all_tools
+
+      skills ->
+        allowed = allowed_tool_names(skills)
+
+        Enum.filter(all_tools, fn tool ->
+          tool_name = tool["name"]
+          full_name = [tool["server_id"], tool_name] |> Enum.reject(&is_nil/1) |> Enum.join("__")
+          MapSet.member?(allowed, tool_name) or MapSet.member?(allowed, full_name)
+        end)
+    end
+  end
+
+  def tool_permitted_for_skills?(server_id, tool_name, selected_skills) do
+    assisted_skills =
+      Enum.filter(selected_skills, &(Map.get(&1, :execution_mode, "prompt_only") == "assisted"))
+
+    case assisted_skills do
+      [] ->
+        true
+
+      skills ->
+        allowed = allowed_tool_names(skills)
+
+        MapSet.member?(allowed, tool_name) or
+          MapSet.member?(allowed, "#{server_id}__#{tool_name}")
+    end
+  end
+
+  def effective_tool_names(selected_skills) do
+    assisted_skills =
+      Enum.filter(selected_skills, &(Map.get(&1, :execution_mode, "prompt_only") == "assisted"))
+
+    case assisted_skills do
+      [] ->
+        []
+
+      skills ->
+        skills
+        |> allowed_tool_names()
+        |> MapSet.to_list()
+        |> Enum.sort()
+    end
+  end
 
   def normalize_result(server_id, tool_name, args, metadata, decision, raw_result, attempts) do
     case raw_result do
@@ -107,6 +166,26 @@ defmodule AOS.AgentOS.Tools do
 
   defp default_metadata,
     do: %{risk_tier: "medium", requires_confirmation: false, retryable: false}
+
+  defp allowed_tool_names(skills) do
+    explicit_tools =
+      skills
+      |> Enum.flat_map(&(Map.get(&1, :required_tools, []) || []))
+      |> Enum.map(&to_string/1)
+
+    permission_tools =
+      skills
+      |> Enum.flat_map(&(Map.get(&1, :permissions, []) || []))
+      |> Enum.flat_map(&Map.get(permission_tools(), to_string(&1), []))
+
+    explicit_tools
+    |> Kernel.++(permission_tools)
+    |> MapSet.new()
+  end
+
+  defp permission_tools do
+    Application.get_env(:aos, :skill_permission_tools, @default_permission_tools)
+  end
 
   defp approval_status(:approved, _), do: "approved"
   defp approval_status(:rejected, _), do: "rejected"

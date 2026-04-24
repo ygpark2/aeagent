@@ -1,5 +1,5 @@
 # Example Skill: Shell Access
-This skill allows the agent to execute shell commands to interact with the local operating system.
+This skill allows the agent to inspect the local filesystem and use shell commands when that is the most direct path to completion.
 
 ## Key Capabilities
 - List files (`ls`)

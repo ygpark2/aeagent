@@ -23,6 +23,8 @@ defmodule AOSWeb.AgentDashboardLive do
           input_value: "",
           agent_pid: nil,
           pending_approvals: %{},
+          active_right_tab: :inspection,
+          ui_settings: default_ui_settings(),
           full_width: true
         )
 
@@ -37,6 +39,8 @@ defmodule AOSWeb.AgentDashboardLive do
          input_value: "",
          agent_pid: nil,
          pending_approvals: %{},
+         active_right_tab: :inspection,
+         ui_settings: default_ui_settings(),
          full_width: true
        )}
     end
@@ -81,6 +85,27 @@ defmodule AOSWeb.AgentDashboardLive do
   def handle_event("reject_tool", %{"ref" => approval_ref}, socket) do
     socket = resolve_tool_approval(socket, approval_ref, :rejected, "Rejected tool execution.")
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("switch_right_tab", %{"tab" => tab}, socket) do
+    active_right_tab =
+      case tab do
+        "settings" -> :settings
+        _ -> :inspection
+      end
+
+    {:noreply, assign(socket, active_right_tab: active_right_tab)}
+  end
+
+  @impl true
+  def handle_event("update_ui_settings", %{"ui" => params}, socket) do
+    {:noreply, assign(socket, ui_settings: merge_ui_settings(socket.assigns.ui_settings, params))}
+  end
+
+  @impl true
+  def handle_event("reset_ui_settings", _params, socket) do
+    {:noreply, assign(socket, ui_settings: default_ui_settings())}
   end
 
   # --- Real-time Streaming Handlers ---
@@ -283,4 +308,45 @@ defmodule AOSWeb.AgentDashboardLive do
   defp terminal_status("blocked"), do: "Blocked"
   defp terminal_status("failed"), do: "Failed"
   defp terminal_status(_status), do: "Idle"
+
+  defp default_ui_settings do
+    %{
+      "left_font_size" => 15,
+      "center_font_size" => 16,
+      "right_font_size" => 15,
+      "input_font_size" => 17,
+      "message_density" => "comfortable",
+      "chat_width" => "90"
+    }
+  end
+
+  defp merge_ui_settings(current, params) do
+    Enum.reduce(params, current, fn {key, value}, acc ->
+      Map.put(acc, key, normalize_ui_setting(key, value))
+    end)
+  end
+
+  defp normalize_ui_setting(key, value)
+       when key in ["left_font_size", "center_font_size", "right_font_size", "input_font_size"] do
+    case Integer.parse(to_string(value)) do
+      {size, ""} -> max(12, min(size, 24))
+      _ -> Map.get(default_ui_settings(), key)
+    end
+  end
+
+  defp normalize_ui_setting("chat_width", value) do
+    case value do
+      width when width in ["75", "85", "90", "100"] -> width
+      _ -> "90"
+    end
+  end
+
+  defp normalize_ui_setting("message_density", value) do
+    case value do
+      density when density in ["compact", "comfortable", "relaxed"] -> density
+      _ -> "comfortable"
+    end
+  end
+
+  defp normalize_ui_setting(_key, value), do: value
 end

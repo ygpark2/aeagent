@@ -51,7 +51,7 @@ defmodule AOSWeb.AgentDashboardLiveTest do
     )
 
     html = render(view)
-    assert html =~ "Inspection Pane"
+    assert html =~ "Inspection"
     assert html =~ "File: lib/demo.ex"
     assert html =~ "+ line"
   end
@@ -82,5 +82,38 @@ defmodule AOSWeb.AgentDashboardLiveTest do
     html = render(view)
     assert html =~ "Failed"
     assert html =~ "boom"
+  end
+
+  test "switches right pane to settings tab", %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/agent")
+
+    view
+    |> element("button[phx-click=\"switch_right_tab\"][phx-value-tab=\"settings\"]")
+    |> render_click()
+
+    html = render(view)
+    assert html =~ "Dashboard Settings"
+    assert html =~ "Left Pane Font"
+    assert html =~ "Right Pane Font"
+    assert html =~ "Message Density"
+    assert html =~ "Chat Bubble Width"
+  end
+
+  test "updates ui settings without leaving settings tab", %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/agent")
+
+    view
+    |> element("button[phx-click=\"switch_right_tab\"][phx-value-tab=\"settings\"]")
+    |> render_click()
+
+    view
+    |> form("form[phx-change=\"update_ui_settings\"]", %{
+      "ui" => %{"right_font_size" => "22"}
+    })
+    |> render_change()
+
+    html = render(view)
+    assert html =~ "Dashboard Settings"
+    assert html =~ "22px"
   end
 end

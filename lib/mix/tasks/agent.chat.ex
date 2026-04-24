@@ -178,9 +178,9 @@ defmodule Mix.Tasks.Agent.Chat do
         Mix.shell().error("[error] #{node_id}: #{inspect(reason)}")
         await_execution(execution_id, state)
 
-      {:request_tool_confirmation, approval_ref, tool_name, _args, requester_pid} ->
-        Mix.shell().info("[approval] auto-rejecting #{tool_name} in CLI chat")
-        send(requester_pid, {:tool_approval, approval_ref, :rejected})
+      {:request_tool_confirmation, approval_ref, tool_name, args, requester_pid} ->
+        decision = prompt_tool_approval(tool_name, args)
+        send(requester_pid, {:tool_approval, approval_ref, decision})
         await_execution(execution_id, state)
 
       {:execution_terminal, _status, execution} ->
@@ -252,5 +252,24 @@ defmodule Mix.Tasks.Agent.Chat do
 
   defp restore_logger(state) do
     Logger.configure(level: state.logger_level)
+  end
+
+  defp prompt_tool_approval(tool_name, args) do
+    Mix.shell().info("security check for #{tool_name}")
+    Mix.shell().info("args=#{inspect(args)}")
+
+    case IO.gets("allow tool execution? [y/N]: ") do
+      response when is_binary(response) ->
+        response
+        |> String.trim()
+        |> String.downcase()
+        |> case do
+          value when value in ["y", "yes"] -> :approved
+          _ -> :rejected
+        end
+
+      _ ->
+        :rejected
+    end
   end
 end

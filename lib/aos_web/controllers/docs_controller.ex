@@ -7,8 +7,6 @@ defmodule AOSWeb.DocsController do
 
   import Plug.Conn
 
-  plug :put_layout, html: AOSWeb.LayoutView
-
   @content_types %{
     ".css" => "text/css",
     ".eot" => "font/eot",

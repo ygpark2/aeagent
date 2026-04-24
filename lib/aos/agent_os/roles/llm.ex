@@ -33,7 +33,10 @@ defmodule AOS.AgentOS.Roles.LLM do
     if depth > 10 do
       {:ok, Map.merge(acc_meta, %{text: "Too many tool calls."})}
     else
-      mcp_tools = AOS.AgentOS.MCP.Manager.all_tools()
+      mcp_tools =
+        AOS.AgentOS.MCP.Manager.all_tools()
+        |> AOS.AgentOS.Tools.permitted_tools(Keyword.get(opts, :selected_skills, []))
+
       current_history = if depth == 0 and prompt, do: history ++ [{"user", prompt}], else: history
 
       case execute_call_raw(nil, current_history, Keyword.put(opts, :tools, mcp_tools)) do
@@ -75,15 +78,26 @@ defmodule AOS.AgentOS.Roles.LLM do
       end
 
     display_name = "Tool: #{tool_name}"
-    if notify_pid, do: send(notify_pid, {:workflow_step_started, display_name})
 
     metadata = AOS.AgentOS.Tools.metadata_for(server_id, tool_name)
     autonomy_level = AOS.AgentOS.Autonomy.normalize_level(Keyword.get(opts, :autonomy_level))
+    selected_skills = Keyword.get(opts, :selected_skills, [])
 
     decision =
-      request_tool_confirmation(server_id, tool_name, args, notify_pid, metadata, autonomy_level)
+      request_tool_confirmation(
+        server_id,
+        tool_name,
+        args,
+        notify_pid,
+        metadata,
+        autonomy_level,
+        selected_skills
+      )
 
     started_at = DateTime.utc_now()
+
+    if is_pid(notify_pid) and decision == :approved,
+      do: send(notify_pid, {:workflow_step_started, display_name})
 
     raw_result =
       case decision do
@@ -113,14 +127,22 @@ defmodule AOS.AgentOS.Roles.LLM do
   end
 
   defp request_tool_confirmation(
-         _server_id,
+         server_id,
          tool_name,
          args,
          notify_pid,
          metadata,
-         autonomy_level
+         autonomy_level,
+         selected_skills
        ) do
     cond do
+      not AOS.AgentOS.Tools.tool_permitted_for_skills?(
+        server_id,
+        tool_name,
+        selected_skills
+      ) ->
+        :rejected
+
       not AOS.AgentOS.Autonomy.tool_allowed?(autonomy_level, metadata) ->
         :rejected
 

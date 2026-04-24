@@ -43,4 +43,80 @@ defmodule AOS.AgentOS.ToolsTest do
     assert normalized.approval_status == "rejected"
     assert hd(normalized.content).text =~ "failed"
   end
+
+  test "keeps all tools visible when only prompt-only skills are selected" do
+    all_tools = [
+      %{"server_id" => "internal", "name" => "read_file"},
+      %{"server_id" => "internal", "name" => "write_file"}
+    ]
+
+    skills = [
+      %{name: "general_docs", execution_mode: "prompt_only", permissions: [], required_tools: []}
+    ]
+
+    assert Tools.permitted_tools(all_tools, skills) == all_tools
+  end
+
+  test "filters visible tools for assisted skills from permissions and required tools" do
+    all_tools = [
+      %{"server_id" => "internal", "name" => "read_file"},
+      %{"server_id" => "internal", "name" => "write_file"},
+      %{"server_id" => "internal", "name" => "web_search"},
+      %{"server_id" => "internal", "name" => "execute_command"}
+    ]
+
+    skills = [
+      %{
+        name: "research_writer",
+        execution_mode: "assisted",
+        permissions: ["file_read", "web_search"],
+        required_tools: ["write_file"]
+      }
+    ]
+
+    assert Enum.map(Tools.permitted_tools(all_tools, skills), & &1["name"]) == [
+             "read_file",
+             "write_file",
+             "web_search"
+           ]
+  end
+
+  test "rejects non-whitelisted tools for assisted skills" do
+    skills = [
+      %{
+        name: "research_writer",
+        execution_mode: "assisted",
+        permissions: ["file_read"],
+        required_tools: []
+      }
+    ]
+
+    assert Tools.tool_permitted_for_skills?("internal", "read_file", skills)
+    refute Tools.tool_permitted_for_skills?("internal", "write_file", skills)
+  end
+
+  test "uses configurable permission to tool mapping from application env" do
+    original = Application.get_env(:aos, :skill_permission_tools)
+
+    on_exit(fn ->
+      if original do
+        Application.put_env(:aos, :skill_permission_tools, original)
+      else
+        Application.delete_env(:aos, :skill_permission_tools)
+      end
+    end)
+
+    Application.put_env(:aos, :skill_permission_tools, %{"file_read" => ["fetch_url"]})
+
+    skills = [
+      %{
+        name: "custom_mapping",
+        execution_mode: "assisted",
+        permissions: ["file_read"],
+        required_tools: []
+      }
+    ]
+
+    assert Tools.effective_tool_names(skills) == ["fetch_url"]
+  end
 end
