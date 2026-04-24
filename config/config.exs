@@ -71,6 +71,13 @@ config :aos,
     "gpt" => %{input_per_1k: 0.005, output_per_1k: 0.015},
     "claude" => %{input_per_1k: 0.008, output_per_1k: 0.024}
   },
+  skill_permission_tools: %{
+    "file_read" => ["ls", "read_file", "grep_search", "list_codebase_structure"],
+    "file_write" => ["write_file", "replace"],
+    "shell_exec" => ["execute_command"],
+    "web_search" => ["web_search"],
+    "web_fetch" => ["fetch_url"]
+  },
   mcp_servers:
     %{
       # 예시: 파일시스템 MCP 서버 (설치되어 있어야 함)

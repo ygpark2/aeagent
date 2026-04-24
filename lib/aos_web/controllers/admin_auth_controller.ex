@@ -1,13 +1,15 @@
 defmodule AOSWeb.AdminAuthController do
-  use Phoenix.Controller, formats: [html: AOSWeb.AdminAuthView]
+  use Phoenix.Controller, formats: [html: "View"]
 
   import Plug.Conn
 
-  plug :put_layout, html: AOSWeb.LayoutView
+  plug :put_root_layout, html: {AOSWeb.LayoutView, :app}
+  plug :put_layout, html: {AOSWeb.LayoutView, :admin}
 
   def login(conn, _params) do
     conn
     |> assign(:full_width, true)
+    |> put_view(AOSWeb.AdminAuthView)
     |> render("login.html")
   end
 
@@ -21,6 +23,7 @@ defmodule AOSWeb.AdminAuthController do
     conn
     |> put_flash(:error, "Invalid credentials.")
     |> assign(:full_width, true)
+    |> put_view(AOSWeb.AdminAuthView)
     |> render("login.html")
   end
 

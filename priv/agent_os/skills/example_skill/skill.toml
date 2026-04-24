@@ -1,0 +1,15 @@
+[skill]
+name = "example_skill"
+description = "Shell access guidance for filesystem inspection and command-driven tasks."
+tags = ["shell", "filesystem", "cli"]
+triggers = ["list files", "read files", "search codebase", "run shell command"]
+capabilities = ["ls", "read_file", "grep_search", "execute_command"]
+is_active = true
+
+[execution]
+mode = "assisted"
+required_tools = ["ls", "read_file", "grep_search", "execute_command"]
+permissions = ["file_read"]
+
+[selection]
+priority = 25

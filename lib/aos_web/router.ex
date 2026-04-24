@@ -19,6 +19,7 @@ defmodule AOSWeb.Router do
     plug :accepts, ["html"]
     plug :fetch_session
     plug :fetch_flash
+    plug :put_root_layout, html: {AOSWeb.LayoutView, :app}
     plug :protect_from_forgery
   end
 

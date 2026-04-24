@@ -34,6 +34,7 @@ defmodule AOS.AgentOS.Roles.Executor do
            notify: Map.get(input, :notify),
            execution_id: Map.get(input, :execution_id),
            session_id: Map.get(input, :session_id),
+           selected_skills: skills,
            use_tools: true
          ) do
       {:ok, %{text: result} = meta} ->

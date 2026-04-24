@@ -222,18 +222,25 @@ defmodule AOS.AgentOS.MCP.Internal.Shell do
   def call_tool("web_search", %{"query" => query} = args) do
     max_results = Map.get(args, "max_results", 5)
 
-    url =
+    instant_url =
       "https://api.duckduckgo.com/?q=#{URI.encode_www_form(query)}&format=json&no_redirect=1&no_html=1"
 
     Logger.info("Searching web: #{query}")
 
-    case HTTPoison.get(url, [], follow_redirect: true, timeout: 30_000, recv_timeout: 30_000) do
+    case HTTPoison.get(instant_url, [],
+           follow_redirect: true,
+           timeout: 30_000,
+           recv_timeout: 30_000
+         ) do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         body
         |> Jason.decode()
         |> case do
           {:ok, decoded} ->
-            results = format_search_results(decoded, max_results)
+            results =
+              decoded
+              |> format_search_results(max_results)
+              |> maybe_fallback_search(query, max_results)
 
             {:ok,
              %{
@@ -422,6 +429,54 @@ defmodule AOS.AgentOS.MCP.Internal.Shell do
       "" -> "No search results found."
       text -> text
     end
+  end
+
+  defp maybe_fallback_search("No search results found.", query, max_results) do
+    fallback_html_search(query, max_results)
+  end
+
+  defp maybe_fallback_search(results, _query, _max_results), do: results
+
+  defp fallback_html_search(query, max_results) do
+    html_url = "https://html.duckduckgo.com/html/?q=#{URI.encode_www_form(query)}"
+
+    case HTTPoison.get(html_url, [], follow_redirect: true, timeout: 30_000, recv_timeout: 30_000) do
+      {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
+        body
+        |> extract_html_search_results(max_results)
+        |> case do
+          "" -> "No search results found."
+          text -> text
+        end
+
+      _ ->
+        "No search results found."
+    end
+  end
+
+  defp extract_html_search_results(body, max_results) do
+    ~r/<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/s
+    |> Regex.scan(body)
+    |> Enum.take(max_results)
+    |> Enum.with_index(1)
+    |> Enum.map_join("\n\n", fn {[_, href, raw_title], idx} ->
+      title =
+        raw_title
+        |> strip_html_tags()
+        |> String.trim()
+
+      "#{idx}. #{title}\n#{decode_duckduckgo_href(href)}"
+    end)
+  end
+
+  defp strip_html_tags(text) do
+    Regex.replace(~r/<[^>]+>/, text, "")
+  end
+
+  defp decode_duckduckgo_href(href) do
+    uri = URI.parse(href)
+    params = URI.decode_query(uri.query || "")
+    Map.get(params, "uddg", href)
   end
 
   defp flatten_topics(topics) do

@@ -11,8 +11,6 @@ defmodule AOSWeb.FallbackController do
 
   import Plug.Conn
 
-  plug :put_layout, html: AOSWeb.LayoutView
-
   # This clause handles errors returned by Ecto's insert/update/delete.
   def call(conn, {:error, %Ecto.Changeset{} = changeset}) do
     conn

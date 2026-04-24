@@ -3,8 +3,6 @@ defmodule AOSWeb.RedirectController do
 
   import Plug.Conn
 
-  plug :put_layout, html: AOSWeb.LayoutView
-
   def to_agent(conn, _params) do
     redirect(conn, to: "/agent")
   end
