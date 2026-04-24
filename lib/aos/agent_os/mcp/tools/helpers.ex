@@ -12,8 +12,7 @@ defmodule AOS.AgentOS.MCP.Tools.Helpers do
   end
 
   def workspace_root do
-    Application.get_env(:aos, :workspace_root, File.cwd!())
-    |> Path.expand()
+    AOS.AgentOS.Config.workspace_root()
   end
 
   def maybe_truncate(content, max_len) when byte_size(content) <= max_len, do: content

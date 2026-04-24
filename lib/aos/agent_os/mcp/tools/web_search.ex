@@ -2,6 +2,7 @@ defmodule AOS.AgentOS.MCP.Tools.WebSearch do
   @behaviour AOS.AgentOS.MCP.ToolAdapter
 
   require Logger
+  alias AOS.HTTPClient
 
   @impl true
   def spec do
@@ -34,12 +35,12 @@ defmodule AOS.AgentOS.MCP.Tools.WebSearch do
 
     Logger.info("Searching web: #{query}")
 
-    case HTTPoison.get(instant_url, [],
+    case HTTPClient.get(instant_url, [],
            follow_redirect: true,
            timeout: 30_000,
            recv_timeout: 30_000
          ) do
-      {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
+      {:ok, %{status: 200, body: body}} ->
         body
         |> Jason.decode()
         |> case do
@@ -59,10 +60,10 @@ defmodule AOS.AgentOS.MCP.Tools.WebSearch do
             {:error, "Search decode failed: #{inspect(reason)}"}
         end
 
-      {:ok, %HTTPoison.Response{status_code: code}} ->
+      {:ok, %{status: code}} ->
         {:error, "HTTP Error: #{code}"}
 
-      {:error, %HTTPoison.Error{reason: reason}} ->
+      {:error, reason} ->
         {:error, "Network Error: #{inspect(reason)}"}
     end
   end
@@ -110,8 +111,12 @@ defmodule AOS.AgentOS.MCP.Tools.WebSearch do
   defp fallback_html_search(query, max_results) do
     html_url = "https://html.duckduckgo.com/html/?q=#{URI.encode_www_form(query)}"
 
-    case HTTPoison.get(html_url, [], follow_redirect: true, timeout: 30_000, recv_timeout: 30_000) do
-      {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
+    case HTTPClient.get(html_url, [],
+           follow_redirect: true,
+           timeout: 30_000,
+           recv_timeout: 30_000
+         ) do
+      {:ok, %{status: 200, body: body}} ->
         body
         |> extract_html_search_results(max_results)
         |> case do

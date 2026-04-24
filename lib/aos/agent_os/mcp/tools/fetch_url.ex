@@ -2,6 +2,7 @@ defmodule AOS.AgentOS.MCP.Tools.FetchUrl do
   @behaviour AOS.AgentOS.MCP.ToolAdapter
 
   require Logger
+  alias AOS.HTTPClient
 
   @impl true
   def spec do
@@ -24,14 +25,14 @@ defmodule AOS.AgentOS.MCP.Tools.FetchUrl do
   def call(%{"url" => url}) do
     Logger.info("Fetching URL: #{url}")
 
-    case HTTPoison.get(url, [], follow_redirect: true, timeout: 30_000, recv_timeout: 30_000) do
-      {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
+    case HTTPClient.get(url, [], follow_redirect: true, timeout: 30_000, recv_timeout: 30_000) do
+      {:ok, %{status: 200, body: body}} ->
         {:ok, %{content: [%{type: "text", text: String.slice(body, 0, 5000)}]}}
 
-      {:ok, %HTTPoison.Response{status_code: code}} ->
+      {:ok, %{status: code}} ->
         {:error, "HTTP Error: #{code}"}
 
-      {:error, %HTTPoison.Error{reason: reason}} ->
+      {:error, reason} ->
         {:error, "Network Error: #{inspect(reason)}"}
     end
   end

@@ -3,10 +3,11 @@ defmodule AOS.AgentOS.LLM.Provider.Local do
   Local runtime-backed LLM provider.
   """
 
+  alias AOS.AgentOS.Config
   alias AOS.AgentOS.LLM.Usage
 
   def call(prompt, history, opts) do
-    model = Keyword.get(opts, :model) || Application.get_env(:aos, :agent_model)
+    model = Keyword.get(opts, :model) || Config.agent_model()
     full_prompt = format_prompt_with_history(prompt, history)
 
     case AOS.AgentOS.Runtime.AIRuntime.predict(full_prompt, opts) do

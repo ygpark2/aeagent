@@ -5,44 +5,15 @@ defmodule AOSWeb.AgentDashboardLive do
   """
   use AOSWeb, :live_view
   require Logger
-  alias AOS.AgentOS.Executions
+  alias AOS.AgentOS.DashboardService
   alias AOS.AgentOS.Roles.Reporter
 
   @impl true
   def mount(_params, _session, socket) do
     if connected?(socket) do
-      {:ok, %{content: [%{text: file_tree}]}} =
-        AOS.AgentOS.MCP.Internal.Shell.call_tool("list_codebase_structure", %{})
-
-      socket =
-        assign(socket,
-          messages: [],
-          current_status: "Ready",
-          file_tree: file_tree,
-          active_diff: "",
-          input_value: "",
-          agent_pid: nil,
-          pending_approvals: %{},
-          active_right_tab: :inspection,
-          ui_settings: default_ui_settings(),
-          full_width: true
-        )
-
-      {:ok, socket}
+      {:ok, assign(socket, DashboardService.initial_assigns(default_ui_settings()))}
     else
-      {:ok,
-       assign(socket,
-         messages: [],
-         current_status: "Connecting...",
-         file_tree: "Loading...",
-         active_diff: "",
-         input_value: "",
-         agent_pid: nil,
-         pending_approvals: %{},
-         active_right_tab: :inspection,
-         ui_settings: default_ui_settings(),
-         full_width: true
-       )}
+      {:ok, assign(socket, DashboardService.disconnected_assigns(default_ui_settings()))}
     end
   end
 
@@ -51,27 +22,8 @@ defmodule AOSWeb.AgentDashboardLive do
     if message == "" do
       {:noreply, socket}
     else
-      user_msg = %{role: "user", content: message, type: :chat}
-      new_messages = socket.assigns.messages ++ [user_msg]
-
-      {:ok, execution} =
-        Executions.enqueue(message,
-          notify: self(),
-          history: Enum.map(new_messages, &{&1.role, &1.content})
-        )
-
-      execution_msg = %{
-        role: "system",
-        content: "Execution queued: #{execution.id}",
-        type: :system
-      }
-
       {:noreply,
-       assign(socket,
-         messages: new_messages ++ [execution_msg],
-         input_value: "",
-         current_status: "Designing workflow..."
-       )}
+       assign(socket, DashboardService.submit_message(message, socket.assigns.messages, self()))}
     end
   end
 

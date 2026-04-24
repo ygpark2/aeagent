@@ -1,6 +1,7 @@
 defmodule AOS.AgentOS.MCP.Tools.GrepSearch do
   @behaviour AOS.AgentOS.MCP.ToolAdapter
   alias AOS.AgentOS.MCP.Tools.Helpers
+  alias AOS.Runtime.CommandRunner
 
   @impl true
   def spec do
@@ -33,10 +34,18 @@ defmodule AOS.AgentOS.MCP.Tools.GrepSearch do
       grep_args = ["-rnE", pattern, expanded_path]
       grep_args = if include, do: ["--include", include | grep_args], else: grep_args
 
-      case System.cmd("grep", grep_args) do
-        {out, 0} -> {:ok, %{content: [%{type: "text", text: out}]}}
-        {"", 1} -> {:ok, %{content: [%{type: "text", text: "No matches found."}]}}
-        {err, _} -> {:error, err}
+      case CommandRunner.run("grep", grep_args) do
+        {:ok, %{output: out, exit_code: 0}} ->
+          {:ok, %{content: [%{type: "text", text: out}]}}
+
+        {:ok, %{output: "", exit_code: 1}} ->
+          {:ok, %{content: [%{type: "text", text: "No matches found."}]}}
+
+        {:ok, %{output: err}} ->
+          {:error, err}
+
+        {:error, reason} ->
+          {:error, inspect(reason)}
       end
     end
   end

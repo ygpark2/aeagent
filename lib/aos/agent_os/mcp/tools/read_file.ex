@@ -1,6 +1,7 @@
 defmodule AOS.AgentOS.MCP.Tools.ReadFile do
   @behaviour AOS.AgentOS.MCP.ToolAdapter
   alias AOS.AgentOS.MCP.Tools.Helpers
+  alias AOS.Runtime.FileSystem
 
   @impl true
   def spec do
@@ -20,7 +21,7 @@ defmodule AOS.AgentOS.MCP.Tools.ReadFile do
   @impl true
   def call(%{"path" => path}) do
     with {:ok, expanded_path} <- Helpers.validate_workspace_path(path),
-         {:ok, content} <- File.read(expanded_path) do
+         {:ok, content} <- FileSystem.read(expanded_path) do
       {:ok,
        %{
          content: [%{type: "text", text: content}],

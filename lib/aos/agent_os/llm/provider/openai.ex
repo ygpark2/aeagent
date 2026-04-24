@@ -3,41 +3,42 @@ defmodule AOS.AgentOS.LLM.Provider.OpenAI do
   API-backed provider for OpenAI-compatible chat completions.
   """
 
+  alias AOS.AgentOS.Config
   alias AOS.AgentOS.LLM.Usage
+  alias AOS.HTTPClient
 
   def call(prompt, history, opts) do
-    model = Keyword.get(opts, :model) || Application.get_env(:aos, :agent_model)
+    model = Keyword.get(opts, :model) || Config.agent_model()
     tools = Keyword.get(opts, :tools)
-    base_url = Application.get_env(:aos, :agent_base_url)
-    api_key = Application.get_env(:aos, :agent_api_key)
+    base_url = Config.agent_base_url()
+    api_key = Config.agent_api_key()
 
     {url, body} = prepare_request(base_url, model, prompt, history, tools)
     headers = [{"Authorization", "Bearer #{api_key}"}, {"Content-Type", "application/json"}]
 
-    case HTTPoison.post(url, body, headers, timeout: 60_000, recv_timeout: 60_000) do
-      {:ok, %HTTPoison.Response{status_code: 200, body: resp_body}} ->
+    case HTTPClient.post(url, body, headers, timeout: 60_000, recv_timeout: 60_000) do
+      {:ok, %{status: 200, body: resp_body}} ->
         parse_raw_response(resp_body)
 
-      {:ok, %HTTPoison.Response{status_code: status, body: _body}}
-      when status in [429, 500, 502, 503, 504] ->
+      {:ok, %{status: status}} when status in [429, 500, 502, 503, 504] ->
         {:error, {:retryable_http_error, status}}
 
-      {:ok, %HTTPoison.Response{status_code: status, body: body}} ->
+      {:ok, %{status: status, body: body}} ->
         {:error, "API Error: #{status} #{body}"}
 
-      {:error, %HTTPoison.Error{reason: reason}} ->
+      {:error, reason} ->
         {:error, {:transport_error, reason}}
     end
   end
 
   def list_models do
-    base_url = Application.get_env(:aos, :agent_base_url)
-    api_key = Application.get_env(:aos, :agent_api_key)
+    base_url = Config.agent_base_url()
+    api_key = Config.agent_api_key()
     url = "#{String.replace(base_url, ~r|/v1beta$|, "")}/v1/models"
     headers = [{"Authorization", "Bearer #{api_key}"}]
 
-    case HTTPoison.get(url, headers) do
-      {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
+    case HTTPClient.get(url, headers) do
+      {:ok, %{status: 200, body: body}} ->
         data = Jason.decode!(body)
         {:ok, Enum.map(data["data"] || [], & &1["id"])}
 

@@ -1,5 +1,6 @@
 defmodule AOS.AgentOS.MCP.Tools.ListCodebaseStructure do
   @behaviour AOS.AgentOS.MCP.ToolAdapter
+  alias AOS.Runtime.CommandRunner
 
   @impl true
   def spec do
@@ -17,8 +18,8 @@ defmodule AOS.AgentOS.MCP.Tools.ListCodebaseStructure do
   def call(_args) do
     tree_cmd =
       try do
-        case System.cmd("tree", ["-L", "2", "-d", "lib"]) do
-          {out, 0} -> out
+        case CommandRunner.run("tree", ["-L", "2", "-d", "lib"]) do
+          {:ok, %{output: out, exit_code: 0}} -> out
           _ -> fallback_list()
         end
       rescue
@@ -36,7 +37,9 @@ defmodule AOS.AgentOS.MCP.Tools.ListCodebaseStructure do
   end
 
   defp fallback_list do
-    {out, _} = System.cmd("ls", ["-R", "lib"])
-    out
+    case CommandRunner.run("ls", ["-R", "lib"]) do
+      {:ok, %{output: out}} -> out
+      _ -> "Unable to inspect lib directory."
+    end
   end
 end

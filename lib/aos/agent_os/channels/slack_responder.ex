@@ -3,13 +3,16 @@ defmodule AOS.AgentOS.Channels.SlackResponder do
   Sends asynchronous completion updates to Slack response URLs when available.
   """
 
+  alias AOS.AgentOS.Config
+  alias AOS.HTTPClient
+
   def dispatch(session, execution) do
     response_url = get_in(session.metadata || %{}, ["slack", "response_url"])
 
     if is_binary(response_url) and response_url != "" do
       body = response_body(session, execution)
 
-      HTTPoison.post(response_url, Jason.encode!(body), [{"content-type", "application/json"}],
+      HTTPClient.post(response_url, Jason.encode!(body), [{"content-type", "application/json"}],
         timeout: 10_000,
         recv_timeout: 10_000
       )
@@ -98,11 +101,6 @@ defmodule AOS.AgentOS.Channels.SlackResponder do
   defp maybe_put_thread_ts(body, thread_ts), do: Map.put(body, :thread_ts, thread_ts)
 
   defp dashboard_url(execution_id) do
-    base_url =
-      Application.get_env(:aos, :base_url, "http://localhost:4000")
-      |> to_string()
-      |> String.trim_trailing("/")
-
-    "#{base_url}/agent?execution_id=#{execution_id}"
+    "#{Config.base_url()}/agent?execution_id=#{execution_id}"
   end
 end
