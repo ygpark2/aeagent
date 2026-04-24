@@ -1,4 +1,4 @@
-<div class="flex h-screen bg-gray-900 text-gray-100 font-mono text-[17px]">
+<div class="flex h-screen bg-gray-900 text-gray-100 font-mono">
   
   <!-- Left Pane: File Tree -->
   <div class="w-1/4 border-r border-gray-700 bg-gray-800 p-0 overflow-y-auto flex flex-col">
@@ -6,7 +6,7 @@
       <h2 class="text-[15px] font-bold text-gray-400 uppercase tracking-wider">Workspace</h2>
     </div>
     <div class="p-4">
-      <pre class="text-[15px] leading-relaxed text-gray-300"><%= @file_tree %></pre>
+      <pre class="leading-relaxed text-gray-300" style={"font-size: #{@ui_settings["left_font_size"]}px;"}><%= @file_tree %></pre>
     </div>
   </div>
 
@@ -30,11 +30,11 @@
     </div>
 
   <!-- Chat History -->
-    <div class="flex-1 overflow-y-auto p-6 space-y-6" id="chat-container" phx-hook="ScrollToBottom">
+    <div class={"flex-1 overflow-y-auto p-6 #{case @ui_settings["message_density"] do "compact" -> "space-y-3"; "relaxed" -> "space-y-8"; _ -> "space-y-6" end}"} id="chat-container" phx-hook="ScrollToBottom">
       <%= for {msg, idx} <- Enum.with_index(@messages) do %>
         <div id={"msg-#{idx}"} class={"flex flex-col #{if msg.role == "user", do: "items-end", else: "items-start"}"}>
           
-          <div class={"max-w-[90%] rounded-xl p-4 #{if msg.role == "user", do: "bg-blue-900 text-blue-50", else: "bg-gray-800 text-gray-100 border border-gray-700"}"}>
+          <div class={"rounded-xl #{case @ui_settings["message_density"] do "compact" -> "p-3"; "relaxed" -> "p-5"; _ -> "p-4" end} #{if msg.role == "user", do: "bg-blue-900 text-blue-50", else: "bg-gray-800 text-gray-100 border border-gray-700"}"} style={"max-width: #{@ui_settings["chat_width"]}% ; font-size: #{@ui_settings["center_font_size"]}px;"}>
             <div class="text-xs font-bold mb-2 opacity-60 uppercase tracking-widest">
               <%= msg.role %>
             </div>
@@ -78,10 +78,11 @@
           id="chat-input"
           rows="3"
           placeholder="Ask Autonomous Evolutionary Agent to do something..." 
-          class="flex-1 bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-[17px] focus:outline-none focus:border-blue-500 text-white placeholder-gray-500 resize-none transition-colors min-h-[100px]"
+          class="flex-1 bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-500 text-white placeholder-gray-500 resize-none transition-colors min-h-[100px]"
+          style={"font-size: #{@ui_settings["input_font_size"]}px;"}
           phx-hook="ChatInput"
         ><%= @input_value %></textarea>
-        <button type="submit" class="px-6 py-4 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-bold transition-all shadow-lg active:scale-95 text-[17px] h-full self-stretch flex items-center justify-center min-w-[100px]">
+        <button type="submit" class="px-6 py-4 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-bold transition-all shadow-lg active:scale-95 h-full self-stretch flex items-center justify-center min-w-[100px]" style={"font-size: #{@ui_settings["input_font_size"]}px;"}>
           Send
         </button>
       </form>
@@ -91,17 +92,86 @@
 
   <!-- Right Pane: Code/Diff View -->
   <div class="w-1/4 border-l border-gray-700 bg-gray-800 p-0 overflow-y-auto flex flex-col">
-    <div class="h-12 border-b border-gray-700 flex items-center px-4 bg-gray-800 shrink-0">
-      <h2 class="text-[15px] font-bold text-gray-400 uppercase tracking-wider">Inspection Pane</h2>
+    <div class="h-12 border-b border-gray-700 flex items-center justify-between px-2 bg-gray-800 shrink-0">
+      <div class="flex items-center gap-2">
+        <button
+          phx-click="switch_right_tab"
+          phx-value-tab="inspection"
+          class={"px-3 py-2 text-xs font-bold uppercase tracking-wider rounded #{if @active_right_tab == :inspection, do: "bg-cyan-900/40 text-cyan-300 border border-cyan-800", else: "text-gray-500 hover:text-gray-300"}"}
+        >
+          Inspection
+        </button>
+        <button
+          phx-click="switch_right_tab"
+          phx-value-tab="settings"
+          class={"px-3 py-2 text-xs font-bold uppercase tracking-wider rounded #{if @active_right_tab == :settings, do: "bg-amber-900/40 text-amber-300 border border-amber-800", else: "text-gray-500 hover:text-gray-300"}"}
+        >
+          Settings
+        </button>
+      </div>
     </div>
     
     <div class="p-4 flex-1">
-      <%= if @active_diff == "" do %>
-        <div class="h-full flex items-center justify-center text-gray-600 italic text-center px-4">
-          Select a file or wait for agent modifications to view details here.
+      <%= if @active_right_tab == :settings do %>
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-xl font-bold text-amber-300 uppercase tracking-wider">Dashboard Settings</h3>
+          <button phx-click="reset_ui_settings" class="text-lg text-gray-300 hover:text-white px-4 py-2 rounded bg-gray-900 border border-gray-700">
+            Reset
+          </button>
         </div>
+
+        <.form for={%{}} as={:ui} phx-change="update_ui_settings" class="space-y-4 text-lg">
+          <div class="bg-gray-900 rounded-lg border border-gray-800 p-4">
+            <label class="block text-gray-400 uppercase tracking-wider mb-2 text-lg">Left Pane Font</label>
+            <input type="range" name="ui[left_font_size]" min="12" max="24" value={@ui_settings["left_font_size"]} class="w-full" />
+            <div class="mt-2 text-gray-300 text-xl"><%= @ui_settings["left_font_size"] %>px</div>
+          </div>
+
+          <div class="bg-gray-900 rounded-lg border border-gray-800 p-4">
+            <label class="block text-gray-400 uppercase tracking-wider mb-2 text-lg">Center Pane Font</label>
+            <input type="range" name="ui[center_font_size]" min="12" max="24" value={@ui_settings["center_font_size"]} class="w-full" />
+            <div class="mt-2 text-gray-300 text-xl"><%= @ui_settings["center_font_size"] %>px</div>
+          </div>
+
+          <div class="bg-gray-900 rounded-lg border border-gray-800 p-4">
+            <label class="block text-gray-400 uppercase tracking-wider mb-2 text-lg">Right Pane Font</label>
+            <input type="range" name="ui[right_font_size]" min="12" max="24" value={@ui_settings["right_font_size"]} class="w-full" />
+            <div class="mt-2 text-gray-300 text-xl"><%= @ui_settings["right_font_size"] %>px</div>
+          </div>
+
+          <div class="bg-gray-900 rounded-lg border border-gray-800 p-4">
+            <label class="block text-gray-400 uppercase tracking-wider mb-2 text-lg">Input Font</label>
+            <input type="range" name="ui[input_font_size]" min="12" max="24" value={@ui_settings["input_font_size"]} class="w-full" />
+            <div class="mt-2 text-gray-300 text-xl"><%= @ui_settings["input_font_size"] %>px</div>
+          </div>
+
+          <div class="bg-gray-900 rounded-lg border border-gray-800 p-4">
+            <label class="block text-gray-400 uppercase tracking-wider mb-2 text-lg">Message Density</label>
+            <select name="ui[message_density]" class="w-full bg-gray-800 border border-gray-700 rounded px-4 py-3 text-xl text-gray-200">
+              <option value="compact" selected={@ui_settings["message_density"] == "compact"}>Compact</option>
+              <option value="comfortable" selected={@ui_settings["message_density"] == "comfortable"}>Comfortable</option>
+              <option value="relaxed" selected={@ui_settings["message_density"] == "relaxed"}>Relaxed</option>
+            </select>
+          </div>
+
+          <div class="bg-gray-900 rounded-lg border border-gray-800 p-4">
+            <label class="block text-gray-400 uppercase tracking-wider mb-2 text-lg">Chat Bubble Width</label>
+            <select name="ui[chat_width]" class="w-full bg-gray-800 border border-gray-700 rounded px-4 py-3 text-xl text-gray-200">
+              <option value="75" selected={@ui_settings["chat_width"] == "75"}>75%</option>
+              <option value="85" selected={@ui_settings["chat_width"] == "85"}>85%</option>
+              <option value="90" selected={@ui_settings["chat_width"] == "90"}>90%</option>
+              <option value="100" selected={@ui_settings["chat_width"] == "100"}>100%</option>
+            </select>
+          </div>
+        </.form>
       <% else %>
-        <pre class="text-sm text-gray-300 whitespace-pre-wrap leading-snug"><%= @active_diff %></pre>
+        <%= if @active_diff == "" do %>
+          <div class="h-full flex items-center justify-center text-gray-600 italic text-center px-4" style={"font-size: #{@ui_settings["right_font_size"]}px;"}>
+            Select a file or wait for agent modifications to view details here.
+          </div>
+        <% else %>
+          <pre class="text-gray-300 whitespace-pre-wrap leading-snug" style={"font-size: #{@ui_settings["right_font_size"]}px;"}><%= @active_diff %></pre>
+        <% end %>
       <% end %>
     </div>
   </div>

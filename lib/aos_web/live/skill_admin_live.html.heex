@@ -1,8 +1,8 @@
 <div class="p-8 bg-gray-950 text-white min-h-screen font-mono">
-  <div class="max-w-6xl mx-auto">
+  <div class="w-[80vw] max-w-none mx-auto">
     <div class="flex items-center justify-between mb-8 border-b border-gray-800 pb-4">
-      <h1 class="text-3xl font-bold text-blue-400">Agent Skills Administration</h1>
-      <a href="/agent" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-sm transition-colors border border-gray-600">
+      <h1 class="text-5xl font-bold text-blue-400">Agent Skills Administration</h1>
+      <a href="/agent" class="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded text-xl transition-colors border border-gray-600">
         &larr; Back to Dashboard
       </a>
     </div>
@@ -10,69 +10,251 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
       
       <!-- Skill Registration Form -->
-      <div class="lg:col-span-1 bg-gray-900 p-6 rounded-lg border border-gray-700 shadow-xl h-fit">
-        <h2 class="text-xl font-bold mb-4 text-gray-100">Register New Skill</h2>
+      <div class="lg:col-span-1 bg-gray-900 p-8 rounded-lg border border-gray-700 shadow-xl h-fit">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-4xl font-bold text-gray-100">
+            <%= if @editing_id, do: "Edit Skill", else: "Register New Skill" %>
+          </h2>
+          <%= if @editing_id do %>
+            <button phx-click="cancel_edit" type="button" class="text-lg text-gray-400 hover:text-white px-4 py-2 rounded bg-gray-800 border border-gray-700">
+              Cancel
+            </button>
+          <% end %>
+        </div>
         
-        <.form :let={f} for={@changeset} phx-change="validate" phx-submit="save" class="space-y-4">
+        <.form :let={f} for={@changeset} phx-change="validate" phx-submit="save" class="space-y-6">
           <div>
-            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Skill Name (ID)</label>
+            <label class="block text-lg font-bold text-gray-500 uppercase mb-2">Skill Name (ID)</label>
             <%= text_input f, :name, placeholder: "e.g. excel_pro", 
-                class: "w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none" %>
+                class: "w-full bg-gray-800 border border-gray-700 rounded px-4 py-3 text-xl focus:border-blue-500 outline-none" %>
             <%= error_tag f, :name %>
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Description (for LLM Selection)</label>
+            <label class="block text-lg font-bold text-gray-500 uppercase mb-2">Description (for LLM Selection)</label>
             <%= textarea f, :description, rows: 3, placeholder: "Briefly explain what this skill does...",
-                class: "w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none resize-none" %>
+                class: "w-full bg-gray-800 border border-gray-700 rounded px-4 py-3 text-xl focus:border-blue-500 outline-none resize-none" %>
             <%= error_tag f, :description %>
           </div>
 
           <div>
-            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Instructions (Expert Persona)</label>
+            <label class="block text-lg font-bold text-gray-500 uppercase mb-2">Instructions (Expert Persona)</label>
             <%= textarea f, :instructions, rows: 5, placeholder: "How should the AI behave with this skill?",
-                class: "w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:border-blue-500 outline-none resize-none" %>
+                class: "w-full bg-gray-800 border border-gray-700 rounded px-4 py-3 text-xl focus:border-blue-500 outline-none resize-none" %>
             <%= error_tag f, :instructions %>
           </div>
 
-          <button type="submit" class="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded transition-colors shadow-lg active:scale-95">
-            Register Skill
+          <div>
+            <label class="block text-lg font-bold text-gray-500 uppercase mb-2">Capabilities</label>
+            <%= textarea f, :capabilities, rows: 2, placeholder: "Comma-separated, e.g. read_file, write_file",
+                class: "w-full bg-gray-800 border border-gray-700 rounded px-4 py-3 text-xl focus:border-blue-500 outline-none resize-none" %>
+            <%= error_tag f, :capabilities %>
+          </div>
+
+          <div>
+            <label class="block text-lg font-bold text-gray-500 uppercase mb-2">Tags</label>
+            <%= text_input f, :tags, placeholder: "frontend, design, review",
+                class: "w-full bg-gray-800 border border-gray-700 rounded px-4 py-3 text-xl focus:border-blue-500 outline-none" %>
+            <%= error_tag f, :tags %>
+          </div>
+
+          <div>
+            <label class="block text-lg font-bold text-gray-500 uppercase mb-2">Triggers</label>
+            <%= textarea f, :triggers, rows: 2, placeholder: "Comma-separated matching phrases",
+                class: "w-full bg-gray-800 border border-gray-700 rounded px-4 py-3 text-xl focus:border-blue-500 outline-none resize-none" %>
+            <%= error_tag f, :triggers %>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-lg font-bold text-gray-500 uppercase mb-2">Execution Mode</label>
+              <%= select f, :execution_mode, [{"Prompt only", "prompt_only"}, {"Assisted", "assisted"}],
+                  class: "w-full bg-gray-800 border border-gray-700 rounded px-4 py-3 text-xl focus:border-blue-500 outline-none" %>
+              <%= error_tag f, :execution_mode %>
+            </div>
+
+            <div>
+              <label class="block text-lg font-bold text-gray-500 uppercase mb-2">Priority</label>
+              <%= number_input f, :priority,
+                  class: "w-full bg-gray-800 border border-gray-700 rounded px-4 py-3 text-xl focus:border-blue-500 outline-none" %>
+              <%= error_tag f, :priority %>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-lg font-bold text-gray-500 uppercase mb-2">Permissions</label>
+            <%= text_input f, :permissions, placeholder: "file_read, file_write, web_search",
+                class: "w-full bg-gray-800 border border-gray-700 rounded px-4 py-3 text-xl focus:border-blue-500 outline-none" %>
+            <%= error_tag f, :permissions %>
+          </div>
+
+          <div>
+            <label class="block text-lg font-bold text-gray-500 uppercase mb-2">Required Tools</label>
+            <%= text_input f, :required_tools, placeholder: "ls, read_file, web_search",
+                class: "w-full bg-gray-800 border border-gray-700 rounded px-4 py-3 text-xl focus:border-blue-500 outline-none" %>
+            <%= error_tag f, :required_tools %>
+          </div>
+
+          <button type="submit" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white text-2xl font-bold rounded transition-colors shadow-lg active:scale-95">
+            <%= if @editing_id, do: "Update Skill", else: "Register Skill" %>
           </button>
         </.form>
       </div>
 
       <!-- Skills List -->
-      <div class="lg:col-span-2 space-y-4">
-        <h2 class="text-xl font-bold mb-4 text-gray-100">Registered Skills (<%= length(@skills) %>)</h2>
-        
-        <%= for skill <- @skills do %>
-          <div class="bg-gray-900 border border-gray-700 p-5 rounded-lg shadow hover:border-gray-500 transition-all group">
-            <div class="flex justify-between items-start mb-2">
-              <div class="flex items-center space-x-3">
-                <span class="text-lg font-bold text-blue-300"><%= skill.name %></span>
-                <span class={"px-2 py-0.5 text-[10px] font-bold rounded uppercase tracking-wider #{if skill.is_active, do: "bg-green-900 text-green-300", else: "bg-red-900 text-red-300"}"}>
-                  <%= if skill.is_active, do: "Active", else: "Inactive" %>
-                </span>
-              </div>
-              <div class="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button phx-click="toggle_active" phx-value-id={skill.id} class="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-800 border border-gray-700">
-                  Toggle
-                </button>
-                <button phx-click="delete" phx-value-id={skill.id} data-confirm="Are you sure?" class="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded bg-red-900/20 border border-red-900/50">
-                  Delete
-                </button>
-              </div>
+      <div class="lg:col-span-2 space-y-8">
+        <%= if @preview do %>
+          <div class="bg-amber-950/40 border border-amber-800 rounded-lg p-6">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="text-xl font-bold text-amber-300 uppercase tracking-wider"><%= @preview.title %></h2>
+              <button phx-click="clear_preview" class="text-lg text-gray-400 hover:text-white px-4 py-2 rounded bg-gray-900 border border-gray-700">
+                Clear
+              </button>
             </div>
-            
-            <p class="text-sm text-gray-400 mb-3"><%= skill.description %></p>
-            
-            <%= if skill.instructions do %>
-              <div class="mt-2 bg-gray-950 p-3 rounded text-xs text-gray-500 border-l-2 border-blue-600 italic">
-                <strong>Persona:</strong> <%= String.slice(skill.instructions, 0, 150) %>...
-              </div>
-            <% end %>
+            <pre class="text-lg text-amber-100 whitespace-pre-wrap font-mono"><%= @preview.body %></pre>
           </div>
         <% end %>
+
+        <div class="space-y-4">
+          <h2 class="text-4xl font-bold mb-4 text-gray-100">Database Skills (<%= length(@db_skills) %>)</h2>
+
+          <%= for skill <- @db_skills do %>
+            <div class="bg-gray-900 border border-gray-700 p-6 rounded-lg shadow hover:border-gray-500 transition-all group">
+              <div class="flex justify-between items-start mb-2">
+                <div class="flex items-center space-x-3">
+                  <span class="text-3xl font-bold text-blue-300"><%= skill.name %></span>
+                  <span class={"px-3 py-1 text-lg font-bold rounded uppercase tracking-wider #{if skill.is_active, do: "bg-green-900 text-green-300", else: "bg-red-900 text-red-300"}"}>
+                    <%= if skill.is_active, do: "Active", else: "Inactive" %>
+                  </span>
+                </div>
+                <div class="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button phx-click="edit" phx-value-id={skill.id} class="text-lg text-blue-300 hover:text-white px-4 py-2 rounded bg-blue-950/30 border border-blue-900/50">
+                    Edit
+                  </button>
+                  <button phx-click="export" phx-value-id={skill.id} class="text-lg text-emerald-300 hover:text-white px-4 py-2 rounded bg-emerald-950/30 border border-emerald-900/50">
+                    Export
+                  </button>
+                  <button phx-click="preview_export" phx-value-id={skill.id} class="text-lg text-amber-300 hover:text-white px-4 py-2 rounded bg-amber-950/30 border border-amber-900/50">
+                    Preview
+                  </button>
+                  <button phx-click="force_export" phx-value-id={skill.id} class="text-lg text-orange-300 hover:text-white px-4 py-2 rounded bg-orange-950/30 border border-orange-900/50">
+                    Force
+                  </button>
+                  <button phx-click="toggle_active" phx-value-id={skill.id} class="text-lg text-gray-400 hover:text-white px-4 py-2 rounded bg-gray-800 border border-gray-700">
+                    Toggle
+                  </button>
+                  <button phx-click="delete" phx-value-id={skill.id} data-confirm="Are you sure?" class="text-lg text-red-400 hover:text-red-300 px-4 py-2 rounded bg-red-900/20 border border-red-900/50">
+                    Delete
+                  </button>
+                </div>
+              </div>
+
+              <p class="text-xl text-gray-400 mb-4"><%= skill.description %></p>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-lg mb-4">
+                <div class="bg-gray-950 rounded p-4 border border-gray-800">
+                  <div class="text-gray-500 uppercase tracking-wider mb-2 text-base">Capabilities</div>
+                  <div class="text-gray-300 text-xl"><%= blank_fallback(skill.capabilities) %></div>
+                </div>
+
+                <div class="bg-gray-950 rounded p-4 border border-gray-800">
+                  <div class="text-gray-500 uppercase tracking-wider mb-2 text-base">Execution</div>
+                  <div class="text-gray-300 text-xl"><%= skill.execution_mode || "prompt_only" %> / priority <%= skill.priority || 0 %></div>
+                </div>
+
+                <div class="bg-gray-950 rounded p-4 border border-gray-800">
+                  <div class="text-gray-500 uppercase tracking-wider mb-2 text-base">Permissions</div>
+                  <div class="text-gray-300 text-xl"><%= blank_fallback(skill.permissions) %></div>
+                </div>
+
+                <div class="bg-gray-950 rounded p-4 border border-gray-800">
+                  <div class="text-gray-500 uppercase tracking-wider mb-2 text-base">Required Tools</div>
+                  <div class="text-gray-300 text-xl"><%= blank_fallback(skill.required_tools) %></div>
+                </div>
+              </div>
+
+              <%= if skill.instructions do %>
+                <div class="mt-2 bg-gray-950 p-4 rounded text-lg text-gray-500 border-l-2 border-blue-600 italic">
+                  <strong>Persona:</strong> <%= String.slice(skill.instructions, 0, 150) %>...
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+
+        <div class="space-y-4">
+          <h2 class="text-4xl font-bold mb-4 text-gray-100">Runtime Skills (<%= length(@runtime_skills) %>)</h2>
+
+          <%= for skill <- @runtime_skills do %>
+            <div class="bg-gray-900 border border-gray-700 p-6 rounded-lg shadow">
+              <div class="flex items-start justify-between gap-3 mb-2">
+                <div class="flex flex-wrap items-center gap-3">
+                  <span class="text-3xl font-bold text-cyan-300"><%= skill.name %></span>
+                  <span class={"px-3 py-1 text-lg font-bold rounded uppercase tracking-wider #{if skill.execution_mode == "assisted", do: "bg-amber-900 text-amber-300", else: "bg-slate-800 text-slate-300"}"}>
+                    <%= skill.execution_mode %>
+                  </span>
+                  <span class={"px-3 py-1 text-lg font-bold rounded uppercase tracking-wider #{if skill.source == :filesystem, do: "bg-violet-950 text-violet-300", else: "bg-emerald-950 text-emerald-300"}"}>
+                    <%= skill.source %>
+                  </span>
+                  <%= if skill.priority && skill.priority > 0 do %>
+                    <span class="px-3 py-1 text-lg font-bold rounded uppercase tracking-wider bg-blue-950 text-blue-300">
+                      priority <%= skill.priority %>
+                    </span>
+                  <% end %>
+                </div>
+
+                <%= if skill.source == :filesystem do %>
+                  <div class="flex gap-2">
+                    <button phx-click="import" phx-value-name={skill.name} class="text-lg text-emerald-300 hover:text-white px-4 py-2 rounded bg-emerald-950/30 border border-emerald-900/50">
+                      Import
+                    </button>
+                    <button phx-click="preview_import" phx-value-name={skill.name} class="text-lg text-amber-300 hover:text-white px-4 py-2 rounded bg-amber-950/30 border border-amber-900/50">
+                      Preview
+                    </button>
+                    <button phx-click="force_import" phx-value-name={skill.name} class="text-lg text-orange-300 hover:text-white px-4 py-2 rounded bg-orange-950/30 border border-orange-900/50">
+                      Force
+                    </button>
+                  </div>
+                <% end %>
+              </div>
+
+              <p class="text-xl text-gray-400 mb-4"><%= skill.description %></p>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-lg">
+                <div class="bg-gray-950 rounded p-4 border border-gray-800">
+                  <div class="text-gray-500 uppercase tracking-wider mb-2 text-base">Capabilities</div>
+                  <div class="text-gray-300 text-xl"><%= Enum.join(skill.capabilities || [], ", ") |> blank_fallback() %></div>
+                </div>
+
+                <div class="bg-gray-950 rounded p-4 border border-gray-800">
+                  <div class="text-gray-500 uppercase tracking-wider mb-2 text-base">Triggers</div>
+                  <div class="text-gray-300 text-xl"><%= Enum.join(skill.triggers || [], ", ") |> blank_fallback() %></div>
+                </div>
+
+                <div class="bg-gray-950 rounded p-4 border border-gray-800">
+                  <div class="text-gray-500 uppercase tracking-wider mb-2 text-base">Permissions</div>
+                  <div class="text-gray-300 text-xl"><%= Enum.join(skill.permissions || [], ", ") |> blank_fallback() %></div>
+                </div>
+
+                <div class="bg-gray-950 rounded p-4 border border-gray-800">
+                  <div class="text-gray-500 uppercase tracking-wider mb-2 text-base">Required Tools</div>
+                  <div class="text-gray-300 text-xl"><%= Enum.join(skill.required_tools || [], ", ") |> blank_fallback() %></div>
+                </div>
+
+                <div class="bg-gray-950 rounded p-4 border border-gray-800 md:col-span-2">
+                  <div class="text-gray-500 uppercase tracking-wider mb-2 text-base">Effective Tools</div>
+                  <div class="text-gray-300 text-xl"><%= Enum.join(skill.effective_tools || [], ", ") |> blank_fallback("all tools visible") %></div>
+                </div>
+              </div>
+
+              <%= if skill.instructions do %>
+                <div class="mt-4 bg-gray-950 p-4 rounded text-lg text-gray-500 border-l-2 border-cyan-600 italic">
+                  <strong>Instructions:</strong> <%= String.slice(skill.instructions, 0, 180) %>...
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
       </div>
 
     </div>
