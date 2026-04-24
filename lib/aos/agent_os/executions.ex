@@ -2,8 +2,6 @@ defmodule AOS.AgentOS.Executions do
   @moduledoc """
   Execution lifecycle helpers shared by the web UI, API, and CLI.
   """
-  import Ecto.Query
-
   alias AOS.AgentOS.Core.{Architect, Artifact, DelegationTrace, Engine, Execution, Session}
 
   alias AOS.AgentOS.Execution.{
@@ -11,12 +9,9 @@ defmodule AOS.AgentOS.Executions do
     CheckpointService,
     HistoryService,
     Notifier,
-    Replay
+    Replay,
+    Store
   }
-
-  alias AOS.Repo
-
-  @default_limit 20
 
   def enqueue(task, opts \\ []) when is_binary(task) do
     async? = Keyword.get(opts, :async, true)
@@ -29,7 +24,7 @@ defmodule AOS.AgentOS.Executions do
            resolve_session(task, Keyword.put(opts, :autonomy_level, autonomy_level)),
          history <- HistoryService.effective_history(Keyword.get(opts, :history, []), session.id),
          {:ok, execution} <-
-           create_execution(%{
+           Store.create_execution(%{
              task: task,
              domain: "general",
              session_id: session.id,
@@ -52,51 +47,35 @@ defmodule AOS.AgentOS.Executions do
 
         if async? do
           Task.Supervisor.start_child(AOS.AgentOS.TaskSupervisor, runner)
-          {:ok, get_execution!(execution.id)}
+          {:ok, Store.get_execution!(execution.id)}
         else
           runner.()
-          {:ok, get_execution!(execution.id)}
+          {:ok, Store.get_execution!(execution.id)}
         end
       else
-        {:ok, get_execution!(execution.id)}
+        {:ok, Store.get_execution!(execution.id)}
       end
     end
   end
 
-  def get_execution(id), do: Repo.get(Execution, id)
+  def get_execution(id), do: Store.get_execution(id)
 
-  def get_execution!(id), do: Repo.get!(Execution, id)
+  def get_execution!(id), do: Store.get_execution!(id)
 
-  def get_session(id), do: Repo.get(Session, id)
+  def get_session(id), do: Store.get_session(id)
 
-  def get_session!(id), do: Repo.get!(Session, id)
+  def get_session!(id), do: Store.get_session!(id)
 
-  def list_executions(opts \\ []) do
-    limit = Keyword.get(opts, :limit, @default_limit)
-    session_id = Keyword.get(opts, :session_id)
+  def list_executions(opts \\ []), do: Store.list_executions(opts)
 
-    Execution
-    |> maybe_filter_by_session(session_id)
-    |> order_by([e], desc: e.inserted_at)
-    |> limit(^limit)
-    |> Repo.all()
-  end
-
-  def list_sessions(opts \\ []) do
-    limit = Keyword.get(opts, :limit, @default_limit)
-
-    Session
-    |> order_by([s], desc: s.updated_at)
-    |> limit(^limit)
-    |> Repo.all()
-  end
+  def list_sessions(opts \\ []), do: Store.list_sessions(opts)
 
   def session_history(session_id, opts \\ []) do
     HistoryService.session_history(session_id, opts)
   end
 
   def resume_execution(execution_id, opts \\ []) do
-    execution = get_execution!(execution_id)
+    execution = Store.get_execution!(execution_id)
 
     allowed_statuses = ~w(queued blocked failed)
     resume_mode = CheckpointService.normalize_resume_mode(Keyword.get(opts, :resume_mode))
@@ -124,7 +103,7 @@ defmodule AOS.AgentOS.Executions do
   end
 
   def retry_execution(execution_id, opts \\ []) do
-    execution = get_execution!(execution_id)
+    execution = Store.get_execution!(execution_id)
 
     enqueue(execution.task,
       async: Keyword.get(opts, :async, true),
@@ -141,49 +120,19 @@ defmodule AOS.AgentOS.Executions do
   end
 
   def update_session_metadata(session_id, attrs) when is_map(attrs) do
-    session =
-      session_id
-      |> get_session!()
-
-    merged = Map.merge(session.metadata || %{}, attrs)
-
-    session
-    |> Session.changeset(%{metadata: merged})
-    |> Repo.update()
+    Store.update_session_metadata(session_id, attrs)
   end
 
-  def list_artifacts(execution_id) do
-    Artifact
-    |> where([a], a.execution_id == ^execution_id)
-    |> order_by([a], asc: a.position, asc: a.inserted_at)
-    |> Repo.all()
-  end
+  def list_artifacts(execution_id), do: Store.list_artifacts(execution_id)
 
-  def get_artifact(id), do: Repo.get(Artifact, id)
+  def get_artifact(id), do: Store.get_artifact(id)
 
-  def list_delegation_traces(parent_execution_id) do
-    if is_nil(parent_execution_id) do
-      []
-    else
-      DelegationTrace
-      |> where([t], t.parent_execution_id == ^parent_execution_id)
-      |> order_by([t], asc: t.position, asc: t.inserted_at)
-      |> Repo.all()
-    end
-  end
+  def list_delegation_traces(parent_execution_id),
+    do: Store.list_delegation_traces(parent_execution_id)
 
-  def create_delegation_trace(attrs) do
-    %DelegationTrace{}
-    |> DelegationTrace.changeset(attrs)
-    |> Repo.insert()
-  end
+  def create_delegation_trace(attrs), do: Store.create_delegation_trace(attrs)
 
-  def update_delegation_trace(id, attrs) do
-    DelegationTrace
-    |> Repo.get!(id)
-    |> DelegationTrace.changeset(attrs)
-    |> Repo.update()
-  end
+  def update_delegation_trace(id, attrs), do: Store.update_delegation_trace(id, attrs)
 
   def ensure_execution(%{execution_id: id} = context) when is_binary(id) do
     case get_execution(id) do
@@ -196,7 +145,7 @@ defmodule AOS.AgentOS.Executions do
 
   def mark_running(id, attrs \\ %{}) do
     with {:ok, execution} <-
-           update_execution(
+           Store.update_execution(
              id,
              Map.merge(%{status: "running", started_at: DateTime.utc_now()}, attrs)
            ) do
@@ -207,7 +156,7 @@ defmodule AOS.AgentOS.Executions do
 
   def complete_execution(id, context) do
     with {:ok, execution} <-
-           update_execution(id, execution_attrs_from_context(context, "succeeded", nil)) do
+           Store.update_execution(id, execution_attrs_from_context(context, "succeeded", nil)) do
       update_session_status(execution.session_id, "completed", execution.id)
       ArtifactRecorder.record_final_artifacts(execution, context)
       Notifier.notify_terminal_event(context, execution)
@@ -218,7 +167,7 @@ defmodule AOS.AgentOS.Executions do
 
   def block_execution(id, context, reason) do
     with {:ok, execution} <-
-           update_execution(id, execution_attrs_from_context(context, "blocked", reason)) do
+           Store.update_execution(id, execution_attrs_from_context(context, "blocked", reason)) do
       update_session_status(execution.session_id, "blocked", execution.id)
       ArtifactRecorder.record_final_artifacts(execution, context)
       Notifier.notify_terminal_event(context, execution)
@@ -229,7 +178,7 @@ defmodule AOS.AgentOS.Executions do
 
   def fail_execution(id, context, reason) do
     with {:ok, execution} <-
-           update_execution(id, execution_attrs_from_context(context, "failed", reason)) do
+           Store.update_execution(id, execution_attrs_from_context(context, "failed", reason)) do
       update_session_status(execution.session_id, "failed", execution.id)
       ArtifactRecorder.record_final_artifacts(execution, context)
       Notifier.notify_terminal_event(context, execution)
@@ -306,7 +255,7 @@ defmodule AOS.AgentOS.Executions do
       autonomy_level: Map.get(context, :autonomy_level, AOS.AgentOS.Autonomy.default_level())
     }
 
-    with {:ok, execution} <- create_execution(attrs) do
+    with {:ok, execution} <- Store.create_execution(attrs) do
       updated_context =
         context
         |> Map.put(:execution_id, execution.id)
@@ -316,33 +265,10 @@ defmodule AOS.AgentOS.Executions do
     end
   end
 
-  defp create_execution(attrs) do
-    base_attrs = %{
-      domain: "general",
-      task: "unknown",
-      status: "queued",
-      trigger_kind: "manual",
-      autonomy_level: AOS.AgentOS.Autonomy.default_level(),
-      success: false,
-      execution_log: %{steps: []}
-    }
-
-    %Execution{}
-    |> Execution.changeset(Map.merge(base_attrs, attrs))
-    |> Repo.insert()
-  end
-
-  defp update_execution(id, attrs) do
-    id
-    |> get_execution!()
-    |> Execution.changeset(attrs)
-    |> Repo.update()
-  end
-
   defp resolve_session(task, opts) do
     case Keyword.get(opts, :session_id) do
       nil ->
-        create_session(
+        Store.create_session(
           task,
           Keyword.get(opts, :session_title),
           Keyword.get(opts, :autonomy_level, AOS.AgentOS.Autonomy.default_level())
@@ -354,38 +280,14 @@ defmodule AOS.AgentOS.Executions do
   end
 
   defp fetch_session(session_id) do
-    case get_session(session_id) do
+    case Store.get_session(session_id) do
       nil -> {:error, "session not found: #{session_id}"}
       session -> {:ok, session}
     end
   end
 
-  defp create_session(task, title, autonomy_level) do
-    session_title =
-      title ||
-        task
-        |> String.trim()
-        |> String.replace(~r/\s+/, " ")
-        |> String.slice(0, 80)
-
-    %Session{}
-    |> Session.changeset(%{
-      title: session_title,
-      task: task,
-      status: "active",
-      autonomy_level: autonomy_level,
-      metadata: %{}
-    })
-    |> Repo.insert()
-  end
-
-  defp update_session_status(nil, _status, _execution_id), do: :ok
-
   defp update_session_status(session_id, status, execution_id) do
-    session_id
-    |> get_session!()
-    |> Session.changeset(%{status: status, last_execution_id: execution_id})
-    |> Repo.update()
+    Store.update_session_status(session_id, status, execution_id)
   end
 
   defp execution_attrs_from_context(context, status, reason) do
@@ -409,11 +311,6 @@ defmodule AOS.AgentOS.Executions do
       finished_at: DateTime.utc_now()
     }
   end
-
-  defp maybe_filter_by_session(query, nil), do: query
-
-  defp maybe_filter_by_session(query, session_id),
-    do: where(query, [e], e.session_id == ^session_id)
 
   defp reason_to_string(nil), do: nil
   defp reason_to_string(reason) when is_binary(reason), do: reason

@@ -6,6 +6,7 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
   import Ecto.Query
 
   alias AOS.AgentOS.Core.Artifact
+  alias AOS.AgentOS.Execution.{CheckpointSnapshot, ResumeContext}
   alias AOS.Repo
 
   @default_resume_mode "next_node"
@@ -28,13 +29,17 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
         %{}
 
       artifact ->
-        build_context_from_artifact(artifact, resume_mode)
+        artifact
+        |> build_resume_context(resume_mode)
+        |> ResumeContext.to_map()
     end
   end
 
   def initial_context_for_run(_execution_id, initial_context)
       when map_size(initial_context) > 0 do
-    deserialize_resume_context(initial_context)
+    initial_context
+    |> deserialize_resume_context()
+    |> ResumeContext.to_map()
   end
 
   def initial_context_for_run(execution_id, initial_context) do
@@ -47,12 +52,12 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
           |> Map.get(:payload, %{})
           |> payload_map("context")
           |> deserialize_resume_context()
+          |> ResumeContext.to_map()
           |> Map.merge(initial_context)
 
         execution.trigger_kind == "resume" and execution.source_execution_id ->
           execution.source_execution_id
           |> checkpoint_context(nil, @default_resume_mode)
-          |> deserialize_resume_context()
           |> Map.merge(initial_context)
 
         true ->
@@ -83,92 +88,15 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
     |> Repo.one()
   end
 
-  defp build_context_from_artifact(%Artifact{} = artifact, resume_mode) do
-    payload = artifact.payload || %{}
-    context = payload_map(payload, "context")
-
-    resume_from_node =
-      case resume_mode do
-        "checkpoint_node" -> payload_node(payload, "node_id")
-        _ -> payload_node(payload, "next_node_id") || payload_node(payload, "node_id")
-      end
-
-    context
-    |> stringify_context_keys()
-    |> Map.put("checkpoint_artifact_id", artifact.id)
-    |> Map.put("resume_mode", resume_mode)
-    |> Map.put(
-      "resume_from_node",
-      if(resume_from_node, do: to_string(resume_from_node), else: nil)
-    )
-    |> Map.put("history", payload_map(context, "history"))
-  end
-
   defp payload_map(payload, key) do
     Map.get(payload, key) || Map.get(payload, String.to_atom(key)) || %{}
   end
 
-  defp payload_node(payload, key) do
-    case Map.get(payload, key) || Map.get(payload, String.to_atom(key)) do
-      nil -> nil
-      value -> normalize_node_id(value)
-    end
-  end
-
-  defp stringify_context_keys(context) when is_map(context) do
-    Enum.reduce(context, %{}, fn {key, value}, acc ->
-      Map.put(acc, to_string(key), value)
-    end)
-  end
-
-  defp stringify_context_keys(_), do: %{}
-
-  defp atomize_context_keys(context) when is_map(context) do
-    Enum.reduce(context, %{}, fn {key, value}, acc ->
-      normalized_key = normalize_context_key(key)
-
-      Map.put(acc, normalized_key, value)
-    end)
-  end
-
-  defp atomize_context_keys(_), do: %{}
-
-  defp normalize_context_key(value) when is_atom(value), do: value
-
-  defp normalize_context_key(value) when is_binary(value) do
-    String.to_existing_atom(value)
-  rescue
-    ArgumentError -> String.to_atom(value)
-  end
-
-  defp normalize_node_id(nil), do: nil
-  defp normalize_node_id(value) when is_atom(value), do: value
-  defp normalize_node_id(value) when is_binary(value), do: String.to_atom(value)
-
-  defp restore_history(history) when is_list(history) do
-    Enum.map(history, fn
-      {role, content} -> {to_string(role), content}
-      %{"role" => role, "content" => content} -> {to_string(role), content}
-      %{role: role, content: content} -> {to_string(role), content}
-      other -> {"system", inspect(other)}
-    end)
-  end
-
-  defp restore_history(_history), do: []
-
   defp deserialize_resume_context(context) when is_map(context) do
-    history = payload_map(context, "history")
-
-    context
-    |> atomize_context_keys()
-    |> Map.put(:history, restore_history(history))
-    |> Map.update(:resume_from_node, nil, fn
-      nil -> nil
-      value -> normalize_node_id(value)
-    end)
+    ResumeContext.from_map(context)
   end
 
-  defp deserialize_resume_context(_context), do: %{}
+  defp deserialize_resume_context(_context), do: %ResumeContext{}
 
   defp latest_resume_seed(execution_id) do
     Artifact
@@ -193,8 +121,25 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
     source_execution_id
     |> checkpoint_context(checkpoint_id, resume_mode)
     |> deserialize_resume_context()
+    |> ResumeContext.to_map()
     |> Map.merge(context)
   end
 
   defp ensure_resume_target(context, _execution), do: context
+
+  defp build_resume_context(%Artifact{} = artifact, resume_mode) do
+    snapshot = CheckpointSnapshot.from_artifact(artifact)
+
+    resume_from_node =
+      case resume_mode do
+        "checkpoint_node" -> snapshot.node_id
+        _ -> snapshot.next_node_id || snapshot.node_id
+      end
+
+    snapshot.context
+    |> Map.put("checkpoint_artifact_id", snapshot.artifact_id)
+    |> Map.put("resume_mode", resume_mode)
+    |> Map.put("resume_from_node", resume_from_node)
+    |> ResumeContext.from_map()
+  end
 end
