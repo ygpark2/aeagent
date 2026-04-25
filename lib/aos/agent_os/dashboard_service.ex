@@ -5,6 +5,7 @@ defmodule AOS.AgentOS.DashboardService do
 
   alias AOS.AgentOS.Executions
   alias AOS.AgentOS.MCP.Internal.Shell
+  alias AOS.AgentOS.Skills.CommandFormatter
   alias AOSWeb.Live.Presenters.AgentDashboardPresenter
 
   def initial_assigns(default_ui_settings) do
@@ -149,6 +150,10 @@ defmodule AOS.AgentOS.DashboardService do
     {:ok, append_system_message(assigns, history_text)}
   end
 
+  defp handle_command("/skills", assigns) do
+    {:ok, append_system_message(assigns, CommandFormatter.registered_skills_text())}
+  end
+
   defp handle_command(command, assigns) when is_binary(command) do
     if String.starts_with?(command, "/") do
       {:ok,
@@ -176,7 +181,8 @@ defmodule AOS.AgentOS.DashboardService do
       [
         "/help show commands",
         "/session show current session id",
-        "/history show user prompts in this dashboard session"
+        "/history show user prompts in this dashboard session",
+        "/skills show registered skills"
       ],
       "\n"
     )

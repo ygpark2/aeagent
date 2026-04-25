@@ -6,6 +6,7 @@ defmodule Mix.Tasks.Agent.Chat do
 
   alias AOS.CLI.LineEditor
   alias AOS.AgentOS.Executions
+  alias AOS.AgentOS.Skills.CommandFormatter
 
   @impl true
   def run(args) do
@@ -77,6 +78,11 @@ defmodule Mix.Tasks.Agent.Chat do
 
   defp handle_command("/history", state) do
     print_prompt_history(state.prompt_history)
+    {:continue, state}
+  end
+
+  defp handle_command("/skills", state) do
+    Mix.shell().info(CommandFormatter.registered_skills_text())
     {:continue, state}
   end
 
@@ -285,6 +291,7 @@ defmodule Mix.Tasks.Agent.Chat do
     Mix.shell().info("/logs off hide debug/info logs")
     Mix.shell().info("/session show current session id")
     Mix.shell().info("/history show user prompts in this chat session")
+    Mix.shell().info("/skills show registered skills")
     Mix.shell().info("/exit close chat")
     Mix.shell().info("/quit alias for /exit")
   end

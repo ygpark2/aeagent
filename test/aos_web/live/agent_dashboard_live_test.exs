@@ -128,6 +128,19 @@ defmodule AOSWeb.AgentDashboardLiveTest do
     refute html =~ "Execution queued:"
   end
 
+  test "handles dashboard slash skills command without queueing execution", %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/agent")
+
+    view
+    |> form("#chat-form", %{"message" => "/skills"})
+    |> render_submit()
+
+    html = render(view)
+    assert html =~ "registered skills:"
+    assert html =~ "example_skill"
+    refute html =~ "Execution queued:"
+  end
+
   test "switches right pane to settings tab", %{conn: conn} do
     {:ok, view, _html} = live(conn, "/agent")
 
