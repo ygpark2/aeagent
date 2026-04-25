@@ -14,6 +14,8 @@ defmodule AOS.AgentOS.DashboardService do
       file_tree: load_file_tree(),
       active_diff: "",
       input_value: "",
+      session_id: nil,
+      prompt_history: [],
       agent_pid: nil,
       pending_approvals: %{},
       active_right_tab: :inspection,
@@ -29,6 +31,8 @@ defmodule AOS.AgentOS.DashboardService do
       file_tree: "Loading...",
       active_diff: "",
       input_value: "",
+      session_id: nil,
+      prompt_history: [],
       agent_pid: nil,
       pending_approvals: %{},
       active_right_tab: :inspection,
@@ -37,14 +41,26 @@ defmodule AOS.AgentOS.DashboardService do
     }
   end
 
-  def submit_message(message, existing_messages, notify_pid) do
+  def submit_message(message, assigns, notify_pid) do
+    case handle_command(String.trim(message), assigns) do
+      {:ok, updates} ->
+        updates
+
+      :not_a_command ->
+        enqueue_message(message, assigns, notify_pid)
+    end
+  end
+
+  defp enqueue_message(message, assigns, notify_pid) do
+    existing_messages = assigns.messages
     user_msg = %{role: "user", content: message, type: :chat}
     new_messages = existing_messages ++ [user_msg]
 
     {:ok, execution} =
       Executions.enqueue(message,
         notify: notify_pid,
-        history: Enum.map(new_messages, &{&1.role, &1.content})
+        history: chat_history(new_messages),
+        session_id: assigns.session_id
       )
 
     execution_msg = %{
@@ -56,7 +72,9 @@ defmodule AOS.AgentOS.DashboardService do
     %{
       messages: new_messages ++ [execution_msg],
       input_value: "",
-      current_status: "Designing workflow..."
+      current_status: "Designing workflow...",
+      session_id: execution.session_id,
+      prompt_history: assigns.prompt_history ++ [message]
     }
   end
 
@@ -102,6 +120,72 @@ defmodule AOS.AgentOS.DashboardService do
       {:ok, %{content: [%{text: file_tree} | _]}} -> file_tree
       _ -> "Unable to load workspace structure."
     end
+  end
+
+  defp handle_command("", assigns) do
+    {:ok, append_system_message(assigns, help_text())}
+  end
+
+  defp handle_command("/help", assigns) do
+    {:ok, append_system_message(assigns, help_text())}
+  end
+
+  defp handle_command("/session", assigns) do
+    {:ok, append_system_message(assigns, "session_id=#{assigns.session_id || "(new)"}")}
+  end
+
+  defp handle_command("/history", assigns) do
+    history_text =
+      case assigns.prompt_history do
+        [] ->
+          "no user prompts yet"
+
+        prompts ->
+          prompts
+          |> Enum.with_index(1)
+          |> Enum.map_join("\n", fn {prompt, index} -> "#{index}. #{prompt}" end)
+      end
+
+    {:ok, append_system_message(assigns, history_text)}
+  end
+
+  defp handle_command(command, assigns) when is_binary(command) do
+    if String.starts_with?(command, "/") do
+      {:ok,
+       append_system_message(
+         assigns,
+         "unknown command: #{command}\nuse /help to list available commands"
+       )}
+    else
+      :not_a_command
+    end
+  end
+
+  defp handle_command(_message, _assigns), do: :not_a_command
+
+  defp append_system_message(assigns, content) do
+    %{
+      messages: assigns.messages ++ [%{role: "system", content: content, type: :system}],
+      input_value: "",
+      current_status: assigns.current_status
+    }
+  end
+
+  defp help_text do
+    Enum.join(
+      [
+        "/help show commands",
+        "/session show current session id",
+        "/history show user prompts in this dashboard session"
+      ],
+      "\n"
+    )
+  end
+
+  defp chat_history(messages) do
+    messages
+    |> Enum.reject(&(&1.type == :system))
+    |> Enum.map(&{&1.role, &1.content})
   end
 
   defp update_approval_messages(messages, approval_ref, decision) do

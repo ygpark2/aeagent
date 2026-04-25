@@ -104,6 +104,30 @@ defmodule AOSWeb.AgentDashboardLiveTest do
     assert html =~ "incentive structure"
   end
 
+  test "handles dashboard slash session command without queueing execution", %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/agent")
+
+    view
+    |> form("#chat-form", %{"message" => "/session"})
+    |> render_submit()
+
+    html = render(view)
+    assert html =~ "session_id=(new)"
+    refute html =~ "Execution queued:"
+  end
+
+  test "handles dashboard slash history command without queueing execution", %{conn: conn} do
+    {:ok, view, _html} = live(conn, "/agent")
+
+    view
+    |> form("#chat-form", %{"message" => "/history"})
+    |> render_submit()
+
+    html = render(view)
+    assert html =~ "no user prompts yet"
+    refute html =~ "Execution queued:"
+  end
+
   test "switches right pane to settings tab", %{conn: conn} do
     {:ok, view, _html} = live(conn, "/agent")
 

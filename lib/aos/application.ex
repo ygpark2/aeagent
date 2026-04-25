@@ -8,8 +8,11 @@ defmodule AOS.Application do
   def start(_type, _args) do
     import Supervisor.Spec, warn: false
 
-    # Run any migrations that haven't been run in the release environments.
-    # {:ok, _} = EctoBootMigration.migrate(:aos)
+    # Run any migrations that haven't been run in single-binary deployments.
+    if Application.get_env(:aos, :auto_migrate, false) do
+      {:ok, _} = EctoBootMigration.migrate(:aos)
+    end
+
     # Start the Prometheus exporter.
     AOS.Telemetry.MetricsSetup.setup()
     AOS.AgentOS.ConfigValidator.validate!()

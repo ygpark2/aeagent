@@ -22,15 +22,11 @@ defmodule AOS.MixProject do
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: Mix.compilers(),
       listeners: [Phoenix.CodeReloader],
-      start_permanent: Mix.env() == :prod,
+      start_permanent: Mix.env() in [:prod, :aeagent],
       aliases: aliases(),
       deps: deps(),
       docs: docs(),
-      releases: [
-        eps: [
-          include_executables_for: [:unix]
-        ]
-      ]
+      releases: releases()
     ]
   end
 
@@ -85,6 +81,7 @@ defmodule AOS.MixProject do
       {:phoenix, "~> 1.8.5"},
       {:phoenix_view, "~> 2.0"},
       {:phoenix_html_helpers, "~> 1.0"},
+      {:burrito, "~> 1.0", runtime: false},
       {:tailwind, "~> 0.2", runtime: Mix.env() == :dev},
       {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
       {:phoenix_ecto, "~> 4.7"},
@@ -157,8 +154,30 @@ defmodule AOS.MixProject do
       minor: "version.up minor",
       patch: "version.up patch",
       setup: ["deps.get", "ecto.setup"],
+      "assets.deploy": [
+        "tailwind default --minify",
+        "esbuild default --minify",
+        "phx.digest"
+      ],
       swagger: ["phx.swagger.generate"],
       tests: &run_tests/1
+    ]
+  end
+
+  defp releases do
+    [
+      eps: [
+        include_executables_for: [:unix]
+      ],
+      aeagent: [
+        runtime_config_path: false,
+        steps: [:assemble, &Burrito.wrap/1],
+        burrito: [
+          targets: [
+            macos_silicon: [os: :darwin, cpu: :aarch64]
+          ]
+        ]
+      ]
     ]
   end
 
@@ -242,4 +261,5 @@ defmodule AOS.MixProject do
   defp homepage_url(:staging), do: "https://api.stage.aos-infra.net"
   defp homepage_url(:prod), do: "https://api.prod.aos-infra.net"
   defp homepage_url(:test), do: homepage_url(:dev)
+  defp homepage_url(:aeagent), do: homepage_url(:dev)
 end

@@ -12,7 +12,7 @@ defmodule AOS.AgentOS.Config do
   def agent_base_url, do: get(:agent_base_url)
   def agent_api_key, do: get(:agent_api_key)
   def agent_local_model, do: get(:agent_local_model)
-  def cliproxy_api?, do: not is_nil(get(:cliproxy_api))
+  def cliproxy_api?, do: get(:cliproxy_api) == true
   def architect_max_retries, do: get(:architect_max_retries, 1)
   def domain_success_cap, do: get(:domain_success_cap, 1000)
   def default_autonomy_level, do: get(:default_autonomy_level, "supervised")

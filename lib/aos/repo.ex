@@ -4,7 +4,9 @@ defmodule AOS.Repo do
   Get rid of this when the DB is gone / not used.
   """
 
-  @adapter if Mix.env() in [:dev, :test], do: Ecto.Adapters.SQLite3, else: Ecto.Adapters.Postgres
+  @adapter if Mix.env() in [:dev, :test, :aeagent],
+             do: Ecto.Adapters.SQLite3,
+             else: Ecto.Adapters.Postgres
 
   use Ecto.Repo,
     otp_app: :aos,
@@ -16,6 +18,7 @@ defmodule AOS.Repo do
   def init(_, opts) do
     if @adapter == Ecto.Adapters.SQLite3 do
       path = System.get_env("DATABASE_PATH") || Application.get_env(:aos, :database_path)
+      File.mkdir_p!(Path.dirname(path))
       {:ok, Keyword.put(opts, :database, path)}
     else
       url = System.get_env("DATABASE_URL") || Application.get_env(:aos, :database_url)
