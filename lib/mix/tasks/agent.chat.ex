@@ -75,6 +75,11 @@ defmodule Mix.Tasks.Agent.Chat do
     {:continue, state}
   end
 
+  defp handle_command("/history", state) do
+    print_prompt_history(state.prompt_history)
+    {:continue, state}
+  end
+
   defp handle_command("/logs", state) do
     Mix.shell().info("logs=#{if(state.logs_enabled, do: "on", else: "off")}")
     Mix.shell().info("use /logs on or /logs off")
@@ -279,6 +284,7 @@ defmodule Mix.Tasks.Agent.Chat do
     Mix.shell().info("/logs on enable debug/info logs")
     Mix.shell().info("/logs off hide debug/info logs")
     Mix.shell().info("/session show current session id")
+    Mix.shell().info("/history show user prompts in this chat session")
     Mix.shell().info("/exit close chat")
     Mix.shell().info("/quit alias for /exit")
   end
@@ -298,8 +304,19 @@ defmodule Mix.Tasks.Agent.Chat do
   end
 
   defp append_prompt_history(history, input) do
-    (history ++ [input])
-    |> Enum.uniq()
+    history ++ [input]
+  end
+
+  defp print_prompt_history([]) do
+    Mix.shell().info("no user prompts yet")
+  end
+
+  defp print_prompt_history(history) do
+    history
+    |> Enum.with_index(1)
+    |> Enum.each(fn {prompt, index} ->
+      Mix.shell().info("#{index}. #{prompt}")
+    end)
   end
 
   defp restore_logger(state) do

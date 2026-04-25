@@ -22,8 +22,7 @@ defmodule AOSWeb.AgentDashboardLive do
     if message == "" do
       {:noreply, socket}
     else
-      {:noreply,
-       assign(socket, DashboardService.submit_message(message, socket.assigns.messages, self()))}
+      {:noreply, assign(socket, DashboardService.submit_message(message, socket.assigns, self()))}
     end
   end
 

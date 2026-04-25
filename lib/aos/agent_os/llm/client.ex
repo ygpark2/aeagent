@@ -72,12 +72,25 @@ defmodule AOS.AgentOS.LLM.Client do
   defp select_fallback_model(current_model) do
     case list_models() do
       {:ok, models} when length(models) > 1 ->
-        others = Enum.filter(models, &(&1 != current_model))
-        Enum.random(others)
+        models
+        |> Enum.filter(&(&1 != current_model))
+        |> Enum.filter(&(model_family(&1) == model_family(current_model)))
+        |> case do
+          [] -> current_model
+          candidates -> Enum.random(candidates)
+        end
 
       _ ->
         current_model
     end
+  end
+
+  defp model_family(model) do
+    model
+    |> to_string()
+    |> String.replace(~r|^models/|, "")
+    |> String.split("-", parts: 2)
+    |> List.first()
   end
 
   defp provider do

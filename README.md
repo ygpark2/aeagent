@@ -102,6 +102,6 @@ mix agent.metrics
 
 CLI 명령은 모두 애플리케이션을 부팅한 뒤 현재 DB를 기준으로 동작합니다. 먼저 `mix ecto.migrate`를 적용해 두는 편이 안전합니다.
 `mix agent.chat`은 같은 세션에 execution을 계속 추가하는 대화형 루프이고, `mix agent.run --session-id <id>`는 기존 세션 문맥을 이어받아 단발 실행을 추가하는 방식입니다.
-`mix agent.chat` 안에서는 slash command를 쓸 수 있습니다. 예: `/help`, `/logs`, `/logs on`, `/logs off`, `/session`, `/exit`, `/quit`
+`mix agent.chat` 안에서는 slash command를 쓸 수 있습니다. 예: `/help`, `/logs`, `/logs on`, `/logs off`, `/session`, `/history`, `/exit`, `/quit`
 
 이제 **자율 진화형 에이전트**는 당신의 가장 똑똑하고 신뢰할 수 있는 파트너가 될 것입니다.
