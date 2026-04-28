@@ -21,11 +21,11 @@ defmodule AOS.AgentOS.Policies.DomainPolicy do
           to_string(node_id) in ["evaluator", "reviewer", "reviewer_agent"]
         end)
 
-      if not has_evaluated do
+      if has_evaluated do
+        {:ok, context}
+      else
         Logger.error("[DomainPolicy] Coding task must be evaluated before reporting results!")
         {:error, :evaluation_required}
-      else
-        {:ok, context}
       end
     else
       {:ok, context}

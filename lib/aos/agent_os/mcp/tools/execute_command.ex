@@ -1,4 +1,6 @@
 defmodule AOS.AgentOS.MCP.Tools.ExecuteCommand do
+  @moduledoc "MCP tool for guarded command execution inside the workspace."
+
   @behaviour AOS.AgentOS.MCP.ToolAdapter
 
   require Logger

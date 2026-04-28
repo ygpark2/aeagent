@@ -4,7 +4,7 @@ defmodule AOSWeb.V1.SessionControllerTest do
   alias AOS.AgentOS.Executions
 
   setup %{conn: conn} do
-    {:ok, conn: put_req_header(conn, "accept", "application/json")}
+    {:ok, conn: conn |> put_req_header("accept", "application/json") |> put_api_auth()}
   end
 
   test "lists and shows sessions with executions", %{conn: conn} do
@@ -15,7 +15,11 @@ defmodule AOSWeb.V1.SessionControllerTest do
     assert %{"data" => sessions} = json_response(conn, 200)
     assert Enum.any?(sessions, &(&1["id"] == execution.session_id))
 
-    conn = get(recycle(conn), Routes.api_v1_session_path(conn, :show, execution.session_id))
+    conn =
+      get(
+        recycle(conn) |> put_api_auth(),
+        Routes.api_v1_session_path(conn, :show, execution.session_id)
+      )
 
     assert %{
              "data" => %{

@@ -4,6 +4,7 @@ defmodule AOS.AgentOS.Gateway.MessageHandler do
   Normalizes messages and triggers the appropriate AgentOS workflow.
   """
   require Logger
+  alias AOS.AgentOS.Core.{Architect, Engine}
 
   def handle_incoming_message(source, user_id, content, opts \\ []) do
     Logger.info("Incoming message from #{source} (User: #{user_id}): #{content}")
@@ -26,11 +27,11 @@ defmodule AOS.AgentOS.Gateway.MessageHandler do
     }
 
     # Ask the Architect to design a custom graph for this task
-    workflow = AOS.AgentOS.Core.Architect.build_graph(content)
+    workflow = Architect.build_graph(content)
 
     # Execute graph with the new engine
     Task.start(fn ->
-      AOS.AgentOS.Core.Engine.run(workflow, input)
+      Engine.run(workflow, input)
     end)
   end
 end

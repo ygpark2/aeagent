@@ -1,4 +1,6 @@
 defmodule AOS.AgentOS.MCP.Tools.ReadFile do
+  @moduledoc "MCP tool for reading files inside the workspace."
+
   @behaviour AOS.AgentOS.MCP.ToolAdapter
   alias AOS.AgentOS.MCP.Tools.Helpers
   alias AOS.Runtime.FileSystem

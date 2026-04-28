@@ -7,19 +7,19 @@ defmodule AOS.UtilsTest do
 
   alias AOS.TestUtils
 
-  describe "is_map_fully_replicated?" do
+  describe "map_fully_replicated?" do
     test "it fails when any primitive properties in the original map are not the same in copied map" do
       map1 = %{:key1 => "value1", :key2 => "value2", :key3 => "value3"}
       map2 = %{:key4 => "value4", :key5 => "value5", :key6 => "value6"}
 
-      refute TestUtils.is_map_fully_replicated?(map1, map2)
+      refute TestUtils.map_fully_replicated?(map1, map2)
     end
 
     test "it confirms all primitive properties in original map are contained in copied map" do
       map1 = %{:key1 => "value1", :key2 => "value2", :key3 => "value3"}
       map2 = %{:key1 => "value1", :key2 => "value2", :key3 => "value3", :key4 => "value4"}
 
-      assert TestUtils.is_map_fully_replicated?(map1, map2)
+      assert TestUtils.map_fully_replicated?(map1, map2)
     end
   end
 

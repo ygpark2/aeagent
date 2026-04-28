@@ -5,12 +5,13 @@ defmodule AOS.AgentOS.LLM.Provider.Local do
 
   alias AOS.AgentOS.Config
   alias AOS.AgentOS.LLM.Usage
+  alias AOS.AgentOS.Runtime.AIRuntime
 
   def call(prompt, history, opts) do
     model = Keyword.get(opts, :model) || Config.agent_model()
     full_prompt = format_prompt_with_history(prompt, history)
 
-    case AOS.AgentOS.Runtime.AIRuntime.predict(full_prompt, opts) do
+    case AIRuntime.predict(full_prompt, opts) do
       result when is_binary(result) ->
         usage = Usage.estimate_usage_from_text(full_prompt, result)
         {:ok, Usage.build_text_response(result, usage, model)}

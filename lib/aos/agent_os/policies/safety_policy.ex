@@ -26,29 +26,29 @@ defmodule AOS.AgentOS.Policies.SafetyPolicy do
     latest_command = Map.get(context, :last_command, "")
     latest_write_path = Map.get(context, :last_write_path, "")
 
-    cond do
-      contains_pii?(task) or contains_pii?(result) ->
-        Logger.error("[SafetyPolicy] PII detected in task or result! Blocking execution.")
-        {:error, :pii_detected}
+    [
+      {contains_pii?(task) or contains_pii?(result), :pii_detected,
+       "[SafetyPolicy] PII detected in task or result! Blocking execution."},
+      {dangerous_text?(task), :dangerous_intent,
+       "[SafetyPolicy] Dangerous intent detected in task."},
+      {dangerous_text?(result), :dangerous_output,
+       "[SafetyPolicy] Dangerous content detected in result."},
+      {latest_command != "" and dangerous_text?(latest_command), :dangerous_command,
+       "[SafetyPolicy] Dangerous command detected in execution context."},
+      {latest_write_path != "" and outside_workspace?(latest_write_path), :unsafe_write_path,
+       "[SafetyPolicy] Write path outside workspace detected."}
+    ]
+    |> evaluate_checks(context)
+  end
 
-      dangerous_text?(task) ->
-        Logger.error("[SafetyPolicy] Dangerous intent detected in task.")
-        {:error, :dangerous_intent}
-
-      dangerous_text?(result) ->
-        Logger.error("[SafetyPolicy] Dangerous content detected in result.")
-        {:error, :dangerous_output}
-
-      latest_command != "" and dangerous_text?(latest_command) ->
-        Logger.error("[SafetyPolicy] Dangerous command detected in execution context.")
-        {:error, :dangerous_command}
-
-      latest_write_path != "" and outside_workspace?(latest_write_path) ->
-        Logger.error("[SafetyPolicy] Write path outside workspace detected.")
-        {:error, :unsafe_write_path}
-
-      true ->
+  defp evaluate_checks(checks, context) do
+    case Enum.find(checks, fn {blocked?, _reason, _message} -> blocked? end) do
+      nil ->
         {:ok, context}
+
+      {_blocked?, reason, message} ->
+        Logger.error(message)
+        {:error, reason}
     end
   end
 

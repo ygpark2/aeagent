@@ -5,6 +5,7 @@ defmodule AOS.AgentOS.Core.Nodes.PanelDebate do
 
   @behaviour AOS.AgentOS.Core.Node
 
+  alias AOS.AgentOS.LLM.Usage
   alias AOS.AgentOS.Roles.LLM
 
   require Logger
@@ -568,5 +569,5 @@ defmodule AOS.AgentOS.Core.Nodes.PanelDebate do
   end
 
   defp normalize_usage(nil), do: %{prompt_tokens: 0, completion_tokens: 0, total_tokens: 0}
-  defp normalize_usage(usage), do: AOS.AgentOS.LLM.Usage.normalize_usage(usage)
+  defp normalize_usage(usage), do: Usage.normalize_usage(usage)
 end

@@ -3,23 +3,18 @@ defmodule AOS.AgentOS.Core.Architect.DomainDetector do
   Lightweight domain classification for architect prompts.
   """
 
+  @domain_terms [
+    coding: ~w(code elixir function debug),
+    research: ~w(research investigate),
+    shopping: ~w(buy price)
+  ]
+
   def detect_domain(task) when is_binary(task) do
     downcased = String.downcase(task)
 
-    cond do
-      String.contains?(downcased, "code") or String.contains?(downcased, "elixir") or
-        String.contains?(downcased, "function") or String.contains?(downcased, "debug") ->
-        :coding
-
-      String.contains?(downcased, "research") or String.contains?(downcased, "investigate") ->
-        :research
-
-      String.contains?(downcased, "buy") or String.contains?(downcased, "price") ->
-        :shopping
-
-      true ->
-        :general
-    end
+    Enum.find_value(@domain_terms, :general, fn {domain, terms} ->
+      if Enum.any?(terms, &String.contains?(downcased, &1)), do: domain
+    end)
   end
 
   def detect_domain(_task), do: :general

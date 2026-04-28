@@ -1,4 +1,6 @@
 defmodule AOSWeb.Plugs.AdminAuth do
+  @moduledoc "Requires an authenticated admin session for browser routes."
+
   import Plug.Conn
   import Phoenix.Controller
 

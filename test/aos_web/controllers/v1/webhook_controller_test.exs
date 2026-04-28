@@ -8,7 +8,7 @@ defmodule AOSWeb.V1.WebhookControllerTest do
        |> put_req_header("accept", "application/json")
        |> put_req_header(
          "x-aos-webhook-secret",
-         Application.get_env(:aos, :webhook_shared_secret)
+         :application.get_env(:aos, :webhook_shared_secret, nil)
        )}
   end
 

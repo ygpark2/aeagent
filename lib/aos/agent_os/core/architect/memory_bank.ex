@@ -1,7 +1,9 @@
 defmodule AOS.AgentOS.Core.Architect.MemoryBank do
   @moduledoc """
-  Placeholder long-term-memory lookup for successful graph patterns.
+  Long-term-memory lookup for successful graph patterns.
   """
 
-  def fetch_past_successes(_domain, _task), do: "No prior patterns available."
+  alias AOS.AgentOS.Evolution.StrategyRegistry
+
+  def fetch_past_successes(domain, task), do: StrategyRegistry.reference_patterns(domain, task)
 end

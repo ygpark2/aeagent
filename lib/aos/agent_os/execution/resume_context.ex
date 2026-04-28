@@ -3,6 +3,8 @@ defmodule AOS.AgentOS.Execution.ResumeContext do
   Typed resume context restored from checkpoints or resume seeds.
   """
 
+  alias AOS.AgentOS.Core.NodeId
+
   defstruct [
     :feedback,
     :result,
@@ -64,7 +66,19 @@ defmodule AOS.AgentOS.Execution.ResumeContext do
   end
 
   defp normalize_key(key) when is_atom(key), do: key
-  defp normalize_key(key) when is_binary(key), do: String.to_atom(key)
+  defp normalize_key("history"), do: :history
+  defp normalize_key("feedback"), do: :feedback
+  defp normalize_key("result"), do: :result
+  defp normalize_key("execution_result"), do: :execution_result
+  defp normalize_key("cost_usd"), do: :cost_usd
+  defp normalize_key("estimated_cost"), do: :estimated_cost
+  defp normalize_key("llm_usage"), do: :llm_usage
+  defp normalize_key("selected_skills"), do: :selected_skills
+  defp normalize_key("skills"), do: :skills
+  defp normalize_key("checkpoint_artifact_id"), do: :checkpoint_artifact_id
+  defp normalize_key("resume_mode"), do: :resume_mode
+  defp normalize_key("resume_from_node"), do: :resume_from_node
+  defp normalize_key(key) when is_binary(key), do: key
 
   defp normalize_history(history) when is_list(history) do
     Enum.map(history, fn
@@ -79,5 +93,5 @@ defmodule AOS.AgentOS.Execution.ResumeContext do
 
   defp normalize_node(nil), do: nil
   defp normalize_node(value) when is_atom(value), do: value
-  defp normalize_node(value) when is_binary(value), do: String.to_atom(value)
+  defp normalize_node(value) when is_binary(value), do: NodeId.normalize(value)
 end

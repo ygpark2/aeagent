@@ -4,8 +4,8 @@ defmodule AOSWeb.V1.SlackController do
 
   import Plug.Conn
 
-  alias AOS.AgentOS.Config
   alias AOS.AgentOS.Channels.SecurityConfig
+  alias AOS.AgentOS.Config
   alias AOS.AgentOS.Executions
 
   action_fallback AOSWeb.FallbackController
@@ -57,7 +57,7 @@ defmodule AOSWeb.V1.SlackController do
   defp valid_internal_secret?(conn) do
     configured = SecurityConfig.slack_shared_secret()
     provided = get_req_header(conn, "x-aos-slack-secret") |> List.first()
-    provided == configured
+    valid_secret?(provided, configured)
   end
 
   defp valid_slack_signature?(conn) do
@@ -97,6 +97,14 @@ defmodule AOSWeb.V1.SlackController do
         true
     end
   end
+
+  defp valid_secret?(provided, configured)
+       when is_binary(provided) and is_binary(configured) and byte_size(configured) > 0 do
+    byte_size(provided) == byte_size(configured) and
+      Plug.Crypto.secure_compare(provided, configured)
+  end
+
+  defp valid_secret?(_provided, _configured), do: false
 
   defp signing_bases(conn, timestamp, raw_body) do
     params_body =

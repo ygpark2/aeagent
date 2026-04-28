@@ -1,4 +1,6 @@
 defmodule AOS.AgentOS.MCP.Tools.FetchUrl do
+  @moduledoc "MCP tool for fetching URL content."
+
   @behaviour AOS.AgentOS.MCP.ToolAdapter
 
   require Logger

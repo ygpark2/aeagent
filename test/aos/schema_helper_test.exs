@@ -8,8 +8,6 @@ defmodule AOS.SchemaHelperTest do
   require AOS.Enums
 
   import Ecto.Changeset
-  import Mock
-
   alias AOS.{SchemaHelper, UUID}
 
   describe "ensure_map/1" do
@@ -44,7 +42,7 @@ defmodule AOS.SchemaHelperTest do
       params = %{}
       changeset = {data, types} |> cast(params, Map.keys(types)) |> SchemaHelper.generate_id()
 
-      assert changeset |> get_field(:id) |> UUID.is_guid?()
+      assert changeset |> get_field(:id) |> UUID.guid?()
     end
 
     test "does not generate a GUID for an ID if an ID is passed" do

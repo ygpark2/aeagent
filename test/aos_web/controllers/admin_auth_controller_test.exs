@@ -4,10 +4,10 @@ defmodule AOSWeb.AdminAuthControllerTest do
   alias AOS.Admin.Authenticator
 
   setup do
-    original_provider = Application.get_env(:aos, :admin_auth_provider)
-    original_username = Application.get_env(:aos, :admin_username)
-    original_password = Application.get_env(:aos, :admin_password)
-    original_hash = Application.get_env(:aos, :admin_password_hash)
+    original_provider = :application.get_env(:aos, :admin_auth_provider, nil)
+    original_username = :application.get_env(:aos, :admin_username, nil)
+    original_password = :application.get_env(:aos, :admin_password, nil)
+    original_hash = :application.get_env(:aos, :admin_password_hash, nil)
 
     Application.put_env(:aos, :admin_auth_provider, AOS.Admin.Credentials.EnvProvider)
     Application.put_env(:aos, :admin_username, "admin")

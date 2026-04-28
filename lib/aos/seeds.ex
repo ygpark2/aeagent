@@ -3,6 +3,8 @@ defmodule AOS.Seeds do
   The seeds context.
   """
 
+  alias AOS.AgentOS.Skills.Manager
+
   def seed_entities(:dev) do
     [
       %{
@@ -23,7 +25,7 @@ defmodule AOS.Seeds do
       }
     ]
     |> Enum.each(fn attrs ->
-      case AOS.AgentOS.Skills.Manager.register_skill(attrs) do
+      case Manager.register_skill(attrs) do
         {:ok, _} -> IO.puts("Seeded skill: #{attrs.name}")
         _ -> IO.puts("Skill #{attrs.name} already exists.")
       end

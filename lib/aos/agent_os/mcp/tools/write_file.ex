@@ -1,4 +1,6 @@
 defmodule AOS.AgentOS.MCP.Tools.WriteFile do
+  @moduledoc "MCP tool for writing files inside the workspace."
+
   @behaviour AOS.AgentOS.MCP.ToolAdapter
   require Logger
   alias AOS.AgentOS.MCP.Tools.Helpers

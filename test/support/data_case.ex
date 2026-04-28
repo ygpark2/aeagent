@@ -16,6 +16,8 @@ defmodule AOS.DataCase do
 
   use ExUnit.CaseTemplate
 
+  alias Ecto.Adapters.SQL.Sandbox
+
   using do
     quote do
       import Ecto
@@ -33,23 +35,23 @@ defmodule AOS.DataCase do
     end
   end
 
-  # setup tags do
-  #   :ok = Ecto.Adapters.SQL.Sandbox.checkout(AOS.Repo)
+  setup tags do
+    :ok = Sandbox.checkout(AOS.Repo)
 
-  #   unless tags[:async] do
-  #     Ecto.Adapters.SQL.Sandbox.mode(AOS.Repo, {:shared, self()})
-  #   end
+    unless tags[:async] do
+      Sandbox.mode(AOS.Repo, {:shared, self()})
+    end
 
-  #   if tags[:legacy] do
-  #     :ok = Ecto.Adapters.SQL.Sandbox.checkout(AOS.LegacyRepo)
+    #   if tags[:legacy] do
+    #     :ok = Ecto.Adapters.SQL.Sandbox.checkout(AOS.LegacyRepo)
 
-  #     unless tags[:async] do
-  #       Ecto.Adapters.SQL.Sandbox.mode(AOS.LegacyRepo, {:shared, self()})
-  #     end
-  #   end
+    #     unless tags[:async] do
+    #       Ecto.Adapters.SQL.Sandbox.mode(AOS.LegacyRepo, {:shared, self()})
+    #     end
+    #   end
 
-  #   :ok
-  # end
+    :ok
+  end
 
   @doc """
   A helper that transforms changeset errors into a map of messages.

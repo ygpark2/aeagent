@@ -1,4 +1,6 @@
 defmodule AOS.Test.Support.Nodes.CheckpointReporter do
+  @moduledoc false
+
   @behaviour AOS.AgentOS.Core.Node
 
   def run(context, _opts) do

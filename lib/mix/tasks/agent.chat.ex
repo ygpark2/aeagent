@@ -1,12 +1,14 @@
 defmodule Mix.Tasks.Agent.Chat do
+  @moduledoc "Runs the interactive Agent OS chat CLI."
+
   @shortdoc "Run an interactive CLI chat loop against an agent session"
 
   use Mix.Task
   require Logger
 
-  alias AOS.CLI.LineEditor
   alias AOS.AgentOS.Executions
   alias AOS.AgentOS.Skills.CommandFormatter
+  alias AOS.CLI.LineEditor
 
   @impl true
   def run(args) do

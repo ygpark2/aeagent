@@ -6,8 +6,8 @@ ExUnit.configure(exclude: [external: true], max_cases: 1)
 
 ExUnit.start()
 Faker.start()
-# Ecto.Adapters.SQL.Sandbox.mode(AOS.Repo, :manual)
 Code.compile_file("test/support/test_utils.exs")
 
 Mix.Task.run("ecto.create", ["--quiet", "--repo", "AOS.Repo"])
 Mix.Task.run("ecto.migrate", ["--quiet", "--repo", "AOS.Repo"])
+Ecto.Adapters.SQL.Sandbox.mode(AOS.Repo, :manual)

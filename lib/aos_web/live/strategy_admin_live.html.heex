@@ -1,0 +1,107 @@
+<div class="p-8 bg-gray-950 text-white min-h-screen font-mono">
+  <div class="w-[90vw] max-w-none mx-auto">
+    <div class="flex items-center justify-between mb-8 border-b border-gray-800 pb-4">
+      <div>
+        <h1 class="text-5xl font-bold text-emerald-300">Evolution Strategies</h1>
+        <p class="text-xl text-gray-400 mt-2">Strategy fitness, lineage, events, and graph blueprints</p>
+      </div>
+      <div class="flex gap-3">
+        <button phx-click="prune" class="px-5 py-3 bg-amber-900 hover:bg-amber-800 rounded text-xl border border-amber-700">
+          Prune
+        </button>
+        <a href="/agent" class="px-5 py-3 bg-gray-800 hover:bg-gray-700 rounded text-xl border border-gray-600">
+          Back
+        </a>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div class="xl:col-span-1 space-y-3">
+        <h2 class="text-3xl font-bold text-gray-100">Strategies (<%= length(@strategies) %>)</h2>
+        <%= for strategy <- @strategies do %>
+          <button phx-click="select" phx-value-id={strategy.id} class="block w-full text-left bg-gray-900 border border-gray-700 hover:border-emerald-500 rounded p-4">
+            <div class="flex items-center justify-between gap-3">
+              <span class="text-xl text-emerald-200 truncate"><%= strategy.task_signature || strategy.id %></span>
+              <span class={"px-2 py-1 rounded text-sm uppercase #{if strategy.status == "active", do: "bg-green-950 text-green-300", else: "bg-gray-800 text-gray-300"}"}>
+                <%= strategy.status %>
+              </span>
+            </div>
+            <div class="text-gray-400 mt-2">
+              <%= strategy.domain %> | fitness=<%= strategy.fitness_score %> | uses=<%= strategy.usage_count %>
+            </div>
+          </button>
+        <% end %>
+      </div>
+
+      <div class="xl:col-span-2">
+        <%= if @selected do %>
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            <div class="bg-gray-900 border border-gray-700 rounded p-4">
+              <div class="text-gray-500 uppercase">Fitness</div>
+              <div class="text-3xl text-emerald-300"><%= @selected.fitness_score %></div>
+            </div>
+            <div class="bg-gray-900 border border-gray-700 rounded p-4">
+              <div class="text-gray-500 uppercase">Success</div>
+              <div class="text-3xl text-green-300"><%= @selected.success_count %></div>
+            </div>
+            <div class="bg-gray-900 border border-gray-700 rounded p-4">
+              <div class="text-gray-500 uppercase">Failure</div>
+              <div class="text-3xl text-red-300"><%= @selected.failure_count %></div>
+            </div>
+            <div class="bg-gray-900 border border-gray-700 rounded p-4">
+              <div class="text-gray-500 uppercase">Uses</div>
+              <div class="text-3xl text-blue-300"><%= @selected.usage_count %></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-gray-900 border border-gray-700 rounded p-5">
+              <h2 class="text-2xl font-bold text-gray-100 mb-4">Graph</h2>
+              <div class="space-y-2">
+                <%= for line <- graph_lines(@selected) do %>
+                  <div class="bg-gray-950 border border-gray-800 rounded px-3 py-2 text-xl text-cyan-200"><%= line %></div>
+                <% end %>
+              </div>
+            </div>
+
+            <div class="bg-gray-900 border border-gray-700 rounded p-5">
+              <h2 class="text-2xl font-bold text-gray-100 mb-4">Failure Distribution</h2>
+              <%= for {category, count} <- @selected.failure_distribution do %>
+                <div class="flex justify-between border-b border-gray-800 py-2 text-xl">
+                  <span class="text-gray-300"><%= category %></span>
+                  <span class="text-red-300"><%= count %></span>
+                </div>
+              <% end %>
+            </div>
+
+            <div class="bg-gray-900 border border-gray-700 rounded p-5">
+              <h2 class="text-2xl font-bold text-gray-100 mb-4">Events</h2>
+              <div class="space-y-3">
+                <%= for event <- @selected.events do %>
+                  <div class="bg-gray-950 border border-gray-800 rounded p-3">
+                    <div class="text-xl text-amber-300"><%= event.event_type %> <span class="text-gray-500"><%= event.reason %></span></div>
+                    <div class="text-gray-500"><%= event.inserted_at %></div>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+
+            <div class="bg-gray-900 border border-gray-700 rounded p-5">
+              <h2 class="text-2xl font-bold text-gray-100 mb-4">Recent Executions</h2>
+              <div class="space-y-3">
+                <%= for execution <- @selected.recent_executions do %>
+                  <div class="bg-gray-950 border border-gray-800 rounded p-3">
+                    <div class="text-lg text-blue-200"><%= execution.status %> fitness=<%= execution.fitness_score %> quality=<%= execution.quality_score %></div>
+                    <div class="text-gray-500 truncate"><%= execution.task %></div>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          </div>
+        <% else %>
+          <div class="bg-gray-900 border border-gray-700 rounded p-8 text-2xl text-gray-400">No strategies recorded yet.</div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>

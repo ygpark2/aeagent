@@ -4,7 +4,7 @@ defmodule AOS.AgentOS.Execution.ArtifactRecorder do
   """
 
   alias AOS.AgentOS.Core.{Artifact, Execution}
-  alias AOS.AgentOS.Execution.ResumeContext
+  alias AOS.AgentOS.Execution.{CheckpointPayload, ResumeContext}
   alias AOS.Repo
 
   def persist_seed_artifacts(_execution, initial_context) when map_size(initial_context) == 0,
@@ -31,6 +31,8 @@ defmodule AOS.AgentOS.Execution.ArtifactRecorder do
         outcome: Map.get(context, :last_outcome) |> to_string(),
         result: extract_result(context),
         feedback: Map.get(context, :feedback),
+        evaluation_score: Map.get(context, :evaluation_score),
+        evaluation_feedback: Map.get(context, :evaluation_feedback),
         inspection: extract_inspection(context),
         timestamp: DateTime.utc_now()
       }
@@ -49,7 +51,7 @@ defmodule AOS.AgentOS.Execution.ArtifactRecorder do
         session_id: session_id,
         kind: "checkpoint",
         label: "checkpoint:#{node_id}",
-        payload: checkpoint_payload(context, node_id, next_node_id),
+        payload: CheckpointPayload.build(context, node_id, next_node_id),
         position: step_position(context)
       })
     else
@@ -114,24 +116,6 @@ defmodule AOS.AgentOS.Execution.ArtifactRecorder do
        do: inspection
 
   defp extract_inspection(_), do: nil
-
-  defp checkpoint_payload(context, node_id, next_node_id) do
-    %{
-      node_id: to_string(node_id),
-      next_node_id: if(next_node_id, do: to_string(next_node_id), else: nil),
-      context: %{
-        feedback: Map.get(context, :feedback),
-        result: Map.get(context, :result),
-        execution_result: Map.get(context, :execution_result),
-        history: serialize_history(Map.get(context, :history, [])),
-        cost_usd: Map.get(context, :cost_usd, 0.0),
-        estimated_cost: Map.get(context, :estimated_cost, 0.0),
-        llm_usage: Map.get(context, :llm_usage, []),
-        selected_skills: Map.get(context, :selected_skills, []),
-        skills: Map.get(context, :skills, [])
-      }
-    }
-  end
 
   defp serialize_resume_seed(initial_context) do
     initial_context

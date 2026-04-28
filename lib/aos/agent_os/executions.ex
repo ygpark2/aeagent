@@ -2,7 +2,11 @@ defmodule AOS.AgentOS.Executions do
   @moduledoc """
   Execution lifecycle helpers shared by the web UI, API, and CLI.
   """
+  alias AOS.AgentOS.Autonomy
+  alias AOS.AgentOS.Config
   alias AOS.AgentOS.Core.{Architect, Artifact, DelegationTrace, Engine, Execution, Session}
+  alias AOS.AgentOS.Evolution.{QualityEvaluator, StrategyEvaluator}
+  alias AOS.AgentOS.TaskSupervisor
 
   alias AOS.AgentOS.Execution.{
     ArtifactRecorder,
@@ -18,7 +22,7 @@ defmodule AOS.AgentOS.Executions do
     start_immediately? = Keyword.get(opts, :start_immediately, true)
     notify_pid = Keyword.get(opts, :notify)
     initial_context = Keyword.get(opts, :initial_context, %{})
-    autonomy_level = AOS.AgentOS.Autonomy.normalize_level(Keyword.get(opts, :autonomy_level))
+    autonomy_level = Autonomy.normalize_level(Keyword.get(opts, :autonomy_level))
 
     with {:ok, session} <-
            resolve_session(task, Keyword.put(opts, :autonomy_level, autonomy_level)),
@@ -28,33 +32,24 @@ defmodule AOS.AgentOS.Executions do
              task: task,
              domain: "general",
              session_id: session.id,
+             strategy_id: Keyword.get(opts, :strategy_id),
              source_execution_id: Keyword.get(opts, :source_execution_id),
              trigger_kind: Keyword.get(opts, :trigger_kind, "manual"),
              autonomy_level: autonomy_level
            }) do
       ArtifactRecorder.persist_seed_artifacts(execution, initial_context)
 
-      if start_immediately? do
-        runner = fn ->
-          run_existing_execution(execution.id, task,
-            notify: notify_pid,
-            history: history,
-            session_id: session.id,
-            initial_context: initial_context,
-            autonomy_level: autonomy_level
-          )
-        end
-
-        if async? do
-          Task.Supervisor.start_child(AOS.AgentOS.TaskSupervisor, runner)
-          {:ok, Store.get_execution!(execution.id)}
-        else
-          runner.()
-          {:ok, Store.get_execution!(execution.id)}
-        end
-      else
-        {:ok, Store.get_execution!(execution.id)}
-      end
+      maybe_start_execution(%{
+        execution: execution,
+        task: task,
+        session: session,
+        history: history,
+        initial_context: initial_context,
+        notify_pid: notify_pid,
+        autonomy_level: autonomy_level,
+        async?: async?,
+        start_immediately?: start_immediately?
+      })
     end
   end
 
@@ -155,10 +150,20 @@ defmodule AOS.AgentOS.Executions do
   end
 
   def complete_execution(id, context) do
+    context = QualityEvaluator.maybe_evaluate(context, "succeeded")
+
     with {:ok, execution} <-
            Store.update_execution(id, execution_attrs_from_context(context, "succeeded", nil)) do
       update_session_status(execution.session_id, "completed", execution.id)
       ArtifactRecorder.record_final_artifacts(execution, context)
+
+      StrategyEvaluator.record_outcome(
+        execution.strategy_id,
+        "succeeded",
+        outcome_context(execution, context),
+        nil
+      )
+
       Notifier.notify_terminal_event(context, execution)
       Notifier.dispatch_slack_response(execution)
       {:ok, execution}
@@ -166,10 +171,20 @@ defmodule AOS.AgentOS.Executions do
   end
 
   def block_execution(id, context, reason) do
+    context = QualityEvaluator.maybe_evaluate(context, "blocked")
+
     with {:ok, execution} <-
            Store.update_execution(id, execution_attrs_from_context(context, "blocked", reason)) do
       update_session_status(execution.session_id, "blocked", execution.id)
       ArtifactRecorder.record_final_artifacts(execution, context)
+
+      StrategyEvaluator.record_outcome(
+        execution.strategy_id,
+        "blocked",
+        outcome_context(execution, context),
+        reason
+      )
+
       Notifier.notify_terminal_event(context, execution)
       Notifier.dispatch_slack_response(execution)
       {:ok, execution}
@@ -177,10 +192,20 @@ defmodule AOS.AgentOS.Executions do
   end
 
   def fail_execution(id, context, reason) do
+    context = QualityEvaluator.maybe_evaluate(context, "failed")
+
     with {:ok, execution} <-
            Store.update_execution(id, execution_attrs_from_context(context, "failed", reason)) do
       update_session_status(execution.session_id, "failed", execution.id)
       ArtifactRecorder.record_final_artifacts(execution, context)
+
+      StrategyEvaluator.record_outcome(
+        execution.strategy_id,
+        "failed",
+        outcome_context(execution, context),
+        reason
+      )
+
       Notifier.notify_terminal_event(context, execution)
       Notifier.dispatch_slack_response(execution)
       {:ok, execution}
@@ -211,9 +236,10 @@ defmodule AOS.AgentOS.Executions do
       end
 
     initial_context = runtime_initial_context
-    autonomy_level = AOS.AgentOS.Autonomy.normalize_level(Keyword.get(opts, :autonomy_level))
+    autonomy_level = Autonomy.normalize_level(Keyword.get(opts, :autonomy_level))
     graph = graph_builder.(task, notify: notify_pid)
     domain = HistoryService.infer_domain(graph)
+    StrategyEvaluator.mark_used(graph.strategy_id)
 
     Engine.run(
       graph,
@@ -223,6 +249,7 @@ defmodule AOS.AgentOS.Executions do
         execution_id: execution_id,
         session_id: session_id,
         autonomy_level: autonomy_level,
+        strategy_id: graph.strategy_id,
         domain: domain
       }),
       notify: notify_pid
@@ -254,7 +281,8 @@ defmodule AOS.AgentOS.Executions do
       task: Map.get(context, :task, "unknown"),
       domain: Map.get(context, :domain, "general"),
       session_id: Map.get(context, :session_id),
-      autonomy_level: Map.get(context, :autonomy_level, AOS.AgentOS.Autonomy.default_level())
+      autonomy_level: Map.get(context, :autonomy_level, Autonomy.default_level()),
+      strategy_id: Map.get(context, :strategy_id)
     }
 
     with {:ok, execution} <- Store.create_execution(attrs) do
@@ -273,7 +301,7 @@ defmodule AOS.AgentOS.Executions do
         Store.create_session(
           task,
           Keyword.get(opts, :session_title),
-          Keyword.get(opts, :autonomy_level, AOS.AgentOS.Autonomy.default_level())
+          Keyword.get(opts, :autonomy_level, Autonomy.default_level())
         )
 
       session_id ->
@@ -294,12 +322,17 @@ defmodule AOS.AgentOS.Executions do
 
   defp execution_attrs_from_context(context, status, reason) do
     success = status == "succeeded"
+    evolution_attrs = StrategyEvaluator.outcome_attrs(status, context, reason)
 
     %{
       domain: Map.get(context, :domain, "general") |> to_string(),
       task: Map.get(context, :task, "unknown"),
       status: status,
-      autonomy_level: Map.get(context, :autonomy_level, AOS.AgentOS.Autonomy.default_level()),
+      autonomy_level: Map.get(context, :autonomy_level, Autonomy.default_level()),
+      strategy_id: Map.get(context, :strategy_id),
+      fitness_score: evolution_attrs.fitness_score,
+      quality_score: Map.get(context, :evaluation_score),
+      failure_category: evolution_attrs.failure_category,
       success: success,
       execution_log: %{
         steps:
@@ -317,4 +350,61 @@ defmodule AOS.AgentOS.Executions do
   defp reason_to_string(nil), do: nil
   defp reason_to_string(reason) when is_binary(reason), do: reason
   defp reason_to_string(reason), do: inspect(reason)
+
+  defp outcome_context(execution, context) do
+    Map.put(
+      context,
+      :execution_duration_ms,
+      duration_ms(execution.started_at, execution.finished_at)
+    )
+  end
+
+  defp duration_ms(nil, _finished_at), do: 0
+  defp duration_ms(_started_at, nil), do: 0
+
+  defp duration_ms(started_at, finished_at) do
+    DateTime.diff(finished_at, started_at, :millisecond)
+  end
+
+  defp maybe_start_execution(%{execution: execution, start_immediately?: false}) do
+    {:ok, Store.get_execution!(execution.id)}
+  end
+
+  defp maybe_start_execution(%{
+         execution: execution,
+         task: task,
+         session: session,
+         history: history,
+         initial_context: initial_context,
+         notify_pid: notify_pid,
+         autonomy_level: autonomy_level,
+         async?: async?,
+         start_immediately?: true
+       }) do
+    runner = fn ->
+      run_existing_execution(execution.id, task,
+        notify: notify_pid,
+        history: history,
+        session_id: session.id,
+        initial_context: initial_context,
+        autonomy_level: autonomy_level
+      )
+    end
+
+    run_or_spawn(execution, runner, async?)
+  end
+
+  defp run_or_spawn(execution, runner, true) do
+    if Config.sync_async_executions?() do
+      run_or_spawn(execution, runner, false)
+    else
+      Task.Supervisor.start_child(TaskSupervisor, runner)
+      {:ok, Store.get_execution!(execution.id)}
+    end
+  end
+
+  defp run_or_spawn(execution, runner, false) do
+    runner.()
+    {:ok, Store.get_execution!(execution.id)}
+  end
 end

@@ -7,7 +7,9 @@ defmodule AOSWeb.Endpoint do
   @session_options [
     store: :cookie,
     key: "_aos_key",
-    signing_salt: "smJdLKn3"
+    signing_salt: "smJdLKn3",
+    same_site: "Lax",
+    secure: Application.compile_env(:aos, :secure_cookies, false)
   ]
 
   socket "/socket", AOSWeb.UserSocket,

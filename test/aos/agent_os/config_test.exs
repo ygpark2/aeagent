@@ -4,7 +4,7 @@ defmodule AOS.AgentOS.ConfigTest do
   alias AOS.AgentOS.Config
 
   test "cliproxy_api? is true only when config value is true" do
-    original = Application.get_env(:aos, :cliproxy_api)
+    original = :application.get_env(:aos, :cliproxy_api, nil)
 
     on_exit(fn ->
       if is_nil(original) do

@@ -10,7 +10,7 @@ defmodule AOSWeb.V1.SlackControllerTest do
        |> put_req_header("accept", "application/json")
        |> put_req_header(
          "x-aos-slack-secret",
-         Application.get_env(:aos, :slack_shared_secret, "dev-slack-secret")
+         :application.get_env(:aos, :slack_shared_secret, "dev-slack-secret")
        )}
   end
 
@@ -151,7 +151,7 @@ defmodule AOSWeb.V1.SlackControllerTest do
 
   test "accepts valid slack signature", %{conn: conn} do
     signing_secret =
-      Application.get_env(:aos, :slack_signing_secret, "dev-slack-signing-secret")
+      :application.get_env(:aos, :slack_signing_secret, "dev-slack-signing-secret")
 
     timestamp = Integer.to_string(System.system_time(:second))
     raw_body = "command=%2Faos&text=signed+slack+task&start_immediately=false"

@@ -1,12 +1,21 @@
 defmodule AOSWeb.V1.ExecutionControllerTest do
   use AOSWeb.ConnCase, async: true
 
-  alias AOS.AgentOS.Executions
   alias AOS.AgentOS.Core.Artifact
+  alias AOS.AgentOS.Executions
   alias AOS.Repo
 
   setup %{conn: conn} do
-    {:ok, conn: put_req_header(conn, "accept", "application/json")}
+    {:ok, conn: conn |> put_req_header("accept", "application/json") |> put_api_auth()}
+  end
+
+  test "rejects unauthenticated execution API requests" do
+    conn =
+      Phoenix.ConnTest.build_conn()
+      |> put_req_header("accept", "application/json")
+      |> get("/api/v1/executions", %{limit: 5})
+
+    assert %{"errors" => [%{"detail" => "unauthorized"}]} = json_response(conn, 401)
   end
 
   test "creates and fetches an execution", %{conn: conn} do
@@ -30,7 +39,11 @@ defmodule AOSWeb.V1.ExecutionControllerTest do
 
     assert is_binary(session_id)
 
-    conn = get(recycle(conn), Routes.api_v1_execution_path(conn, :show, execution_id))
+    conn =
+      get(
+        recycle(conn) |> put_api_auth(),
+        Routes.api_v1_execution_path(conn, :show, execution_id)
+      )
 
     assert %{
              "data" => %{
@@ -78,7 +91,9 @@ defmodule AOSWeb.V1.ExecutionControllerTest do
     assert source_execution_id == execution_id
 
     conn =
-      post(recycle(conn), "/api/v1/executions/#{execution_id}/retry", %{start_immediately: false})
+      post(recycle(conn) |> put_api_auth(), "/api/v1/executions/#{execution_id}/retry", %{
+        start_immediately: false
+      })
 
     assert %{
              "data" => %{
@@ -88,7 +103,7 @@ defmodule AOSWeb.V1.ExecutionControllerTest do
              }
            } = json_response(conn, 202)
 
-    conn = get(recycle(conn), "/api/v1/executions/#{execution_id}/replay")
+    conn = get(recycle(conn) |> put_api_auth(), "/api/v1/executions/#{execution_id}/replay")
 
     assert %{
              "data" => %{

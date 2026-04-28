@@ -7,7 +7,7 @@ defmodule AOS.AgentOS.Core.Engine do
   alias AOS.AgentOS.Core.Graph
   alias AOS.AgentOS.Execution.CheckpointService
   alias AOS.AgentOS.Executions
-  alias AOS.AgentOS.Policies.{SafetyPolicy, BudgetPolicy, DomainPolicy}
+  alias AOS.AgentOS.Policies.{BudgetPolicy, DomainPolicy, SafetyPolicy}
 
   @active_policies [SafetyPolicy, BudgetPolicy, DomainPolicy]
 
@@ -20,7 +20,8 @@ defmodule AOS.AgentOS.Core.Engine do
     with {:ok, _execution, context} <- Executions.ensure_execution(initial_context),
          {:ok, _execution} <-
            Executions.mark_running(context.execution_id, %{
-             domain: Map.get(context, :domain, "general")
+             domain: Map.get(context, :domain, "general"),
+             strategy_id: Map.get(context, :strategy_id)
            }) do
       context =
         context
@@ -63,39 +64,38 @@ defmodule AOS.AgentOS.Core.Engine do
     end)
   end
 
+  defp perform_node_execution(_graph, node_id, nil, _context, _notify_pid) do
+    {:error, "Node #{node_id} not found in graph"}
+  end
+
   defp perform_node_execution(graph, node_id, node_module, context, notify_pid) do
-    unless node_module do
-      {:error, "Node #{node_id} not found in graph"}
-    else
-      Logger.info("Executing Node: #{node_id} (#{inspect(node_module)})")
+    Logger.info("Executing Node: #{node_id} (#{inspect(node_module)})")
 
-      case node_module.run(context, []) do
-        {:ok, updated_context} ->
-          outcome = Map.get(updated_context, :last_outcome, :success)
+    case node_module.run(context, []) do
+      {:ok, updated_context} ->
+        outcome = Map.get(updated_context, :last_outcome, :success)
 
-          # Send BOTH node_id and node_module so UI can decide how to render
-          if notify_pid,
-            do:
-              send(notify_pid, {:workflow_step_completed, node_id, node_module, updated_context})
+        # Send BOTH node_id and node_module so UI can decide how to render
+        if notify_pid,
+          do: send(notify_pid, {:workflow_step_completed, node_id, node_module, updated_context})
 
-          step_record = %{
-            node_id: node_id,
-            outcome: outcome,
-            feedback: Map.get(updated_context, :feedback, nil),
-            timestamp: DateTime.utc_now()
-          }
+        step_record = %{
+          node_id: node_id,
+          outcome: outcome,
+          feedback: Map.get(updated_context, :feedback, nil),
+          timestamp: DateTime.utc_now()
+        }
 
-          final_context = Map.update!(updated_context, :execution_history, &(&1 ++ [step_record]))
-          next_node_id = find_next_node(graph, node_id, outcome)
-          Executions.record_step_artifact(final_context, node_id, next_node_id)
-          execute_node(graph, next_node_id, final_context, notify_pid)
+        final_context = Map.update!(updated_context, :execution_history, &(&1 ++ [step_record]))
+        next_node_id = find_next_node(graph, node_id, outcome)
+        Executions.record_step_artifact(final_context, node_id, next_node_id)
+        execute_node(graph, next_node_id, final_context, notify_pid)
 
-        {:error, reason} ->
-          Logger.error("Node #{node_id} failed: #{inspect(reason)}")
-          Executions.fail_execution(context.execution_id, context, reason)
-          if notify_pid, do: send(notify_pid, {:workflow_error, node_id, reason})
-          {:error, node_id, reason, context}
-      end
+      {:error, reason} ->
+        Logger.error("Node #{node_id} failed: #{inspect(reason)}")
+        Executions.fail_execution(context.execution_id, context, reason)
+        if notify_pid, do: send(notify_pid, {:workflow_error, node_id, reason})
+        {:error, node_id, reason, context}
     end
   end
 

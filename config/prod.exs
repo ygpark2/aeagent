@@ -15,6 +15,7 @@ config :aos,
   base_url: "https://#{website_host}",
   database_url: database_url,
   scheme: "https",
+  secure_cookies: true,
   website_host: website_host
 
 # Database config

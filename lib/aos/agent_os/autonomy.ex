@@ -3,6 +3,8 @@ defmodule AOS.AgentOS.Autonomy do
   Autonomy level policy matrix shared by execution creation, tools, and runtime policies.
   """
 
+  alias AOS.AgentOS.Config
+
   @levels %{
     "read_only" => %{
       max_cost_usd: 0.5,
@@ -27,7 +29,7 @@ defmodule AOS.AgentOS.Autonomy do
   def levels, do: Map.keys(@levels)
 
   def default_level do
-    AOS.AgentOS.Config.default_autonomy_level()
+    Config.default_autonomy_level()
   end
 
   def normalize_level(level) when is_atom(level), do: normalize_level(to_string(level))

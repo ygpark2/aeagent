@@ -3,7 +3,7 @@ defmodule AOS.Constants.Maps do
   The maps constants are where all constants that are map values should be defined.
   """
 
-  def app_codes() do
+  def app_codes do
     %{
       "expired_jwt" => 40_101,
       "invalid_user" => 40_102,

@@ -5,6 +5,13 @@ defmodule AOS.Application do
 
   use Application
 
+  alias AOS.AgentOS.ConfigValidator
+  alias AOS.AgentOS.MCP.Manager
+  alias AOS.AgentOS.Runtime.{AIPool, AIRuntime, Scheduler, SessionSupervisor}
+  alias AOS.AgentOS.TaskSupervisor
+  alias AOS.Repo
+  alias AOS.Telemetry.MetricsSetup
+
   def start(_type, _args) do
     import Supervisor.Spec, warn: false
 
@@ -14,12 +21,12 @@ defmodule AOS.Application do
     end
 
     # Start the Prometheus exporter.
-    AOS.Telemetry.MetricsSetup.setup()
-    AOS.AgentOS.ConfigValidator.validate!()
+    MetricsSetup.setup()
+    ConfigValidator.validate!()
 
     children = [
       # Start the Ecto repository
-      AOS.Repo,
+      Repo,
       # Start the Telemetry supervisor
       AOS.Telemetry,
       # Start the PubSub system
@@ -27,22 +34,18 @@ defmodule AOS.Application do
       # Start the Endpoint (http/https)
       AOSWeb.Endpoint,
       # Start the Agent OS Session Supervisor
-      AOS.AgentOS.Runtime.SessionSupervisor,
+      SessionSupervisor,
       # Background tasks for API/CLI-triggered executions
-      {Task.Supervisor, name: AOS.AgentOS.TaskSupervisor},
+      {Task.Supervisor, name: TaskSupervisor},
       # Start MCP Manager
-      AOS.AgentOS.MCP.Manager,
+      Manager,
       # Start the Autonomous Scheduler
-      AOS.AgentOS.Runtime.Scheduler,
+      Scheduler,
       # Start Local AI Runtime
-      AOS.AgentOS.Runtime.AIRuntime,
+      AIRuntime,
       # Start FLAME pool for local AI inference
       {FLAME.Pool,
-       name: AOS.AgentOS.Runtime.AIPool,
-       min: 0,
-       max: 10,
-       max_concurrency: 5,
-       idle_shutdown_after: :timer.minutes(5)}
+       name: AIPool, min: 0, max: 10, max_concurrency: 5, idle_shutdown_after: :timer.minutes(5)}
       # Start a worker by calling: AOS.Worker.start_link(arg)
       # {AOS.Worker, arg}
     ]

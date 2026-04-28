@@ -92,18 +92,6 @@ config :aos, AOSWeb.Endpoint,
 # configured to run both http and https servers on
 # different ports.
 
-config :git_hooks,
-  auto_install: false,
-  verbose: true,
-  hooks: [
-    pre_push: [
-      tasks: [
-        {:cmd, "mix format --check-formatted"},
-        {:cmd, "mix credo"}
-      ]
-    ]
-  ]
-
 # Do not include metadata nor timestamps in development logs
 config :logger, :console, format: "[$level] $message\n"
 

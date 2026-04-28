@@ -1,4 +1,6 @@
 defmodule AOS.AgentOS.MCP.Tools.Ls do
+  @moduledoc "MCP tool for listing files inside the workspace."
+
   @behaviour AOS.AgentOS.MCP.ToolAdapter
   alias AOS.AgentOS.MCP.Tools.Helpers
   alias AOS.Runtime.CommandRunner

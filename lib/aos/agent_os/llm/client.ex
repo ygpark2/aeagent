@@ -16,10 +16,7 @@ defmodule AOS.AgentOS.LLM.Client do
   end
 
   def list_models do
-    case runtime_type() do
-      :local -> {:error, :unsupported}
-      _ -> OpenAI.list_models()
-    end
+    provider().list_models()
   end
 
   defp do_call_raw(prompt, history, opts, retry_count) do
@@ -73,8 +70,7 @@ defmodule AOS.AgentOS.LLM.Client do
     case list_models() do
       {:ok, models} when length(models) > 1 ->
         models
-        |> Enum.filter(&(&1 != current_model))
-        |> Enum.filter(&(model_family(&1) == model_family(current_model)))
+        |> Enum.filter(&fallback_candidate?(&1, current_model))
         |> case do
           [] -> current_model
           candidates -> Enum.random(candidates)
@@ -93,7 +89,15 @@ defmodule AOS.AgentOS.LLM.Client do
     |> List.first()
   end
 
+  defp fallback_candidate?(model, current_model) do
+    model != current_model and model_family(model) == model_family(current_model)
+  end
+
   defp provider do
+    Config.llm_provider() || runtime_provider()
+  end
+
+  defp runtime_provider do
     case runtime_type() do
       :local -> Local
       _ -> OpenAI

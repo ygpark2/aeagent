@@ -6,7 +6,7 @@ defmodule AOS.AgentOS.Skills.ManagerTest do
   alias AOS.Repo
 
   setup do
-    original = Application.get_env(:aos, :agent_skills_dir)
+    original = :application.get_env(:aos, :agent_skills_dir, nil)
 
     on_exit(fn ->
       if original do

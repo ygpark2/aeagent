@@ -1,4 +1,6 @@
 defmodule AOS.Test.Support.SlackResponseDispatcher do
+  @moduledoc false
+
   def dispatch(session, execution) do
     test_pid = Application.get_env(:aos, :slack_test_pid, self())
 

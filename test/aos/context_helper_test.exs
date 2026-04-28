@@ -7,9 +7,9 @@ defmodule AOS.ContextHelperTest do
 
   import Ecto.Query, warn: false
 
+  alias AOS.ContextHelper
   alias Faker.Person
   alias Paginator.Page
-  alias AOS.ContextHelper
 
   describe "build_pagination_options/3" do
     test "adds `limit` to the options" do

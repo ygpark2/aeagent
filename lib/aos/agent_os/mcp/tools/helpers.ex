@@ -1,6 +1,8 @@
 defmodule AOS.AgentOS.MCP.Tools.Helpers do
   @moduledoc false
 
+  alias AOS.AgentOS.Config
+
   def validate_workspace_path(path) do
     expanded = Path.expand(path, workspace_root())
 
@@ -12,7 +14,7 @@ defmodule AOS.AgentOS.MCP.Tools.Helpers do
   end
 
   def workspace_root do
-    AOS.AgentOS.Config.workspace_root()
+    Config.workspace_root()
   end
 
   def maybe_truncate(content, max_len) when byte_size(content) <= max_len, do: content

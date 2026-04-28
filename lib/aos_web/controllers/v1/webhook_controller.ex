@@ -39,10 +39,18 @@ defmodule AOSWeb.V1.WebhookController do
     configured = SecurityConfig.webhook_shared_secret()
     provided = get_req_header(conn, "x-aos-webhook-secret") |> List.first()
 
-    if provided == configured do
+    if valid_secret?(provided, configured) do
       :ok
     else
       {:error, "invalid webhook secret"}
     end
   end
+
+  defp valid_secret?(provided, configured)
+       when is_binary(provided) and is_binary(configured) and byte_size(configured) > 0 do
+    byte_size(provided) == byte_size(configured) and
+      Plug.Crypto.secure_compare(provided, configured)
+  end
+
+  defp valid_secret?(_provided, _configured), do: false
 end

@@ -9,9 +9,6 @@ defmodule AOSWeb.ControllerHelperTest do
 
   require AOS.Enums
 
-  import Mock
-
-  alias Faker.App
   alias AOSWeb.ControllerHelper
 
   describe "recursive_keys_to_camel_string/3" do

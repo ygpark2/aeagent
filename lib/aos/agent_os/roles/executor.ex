@@ -1,9 +1,11 @@
 defmodule AOS.AgentOS.Roles.Executor do
+  @moduledoc "Executes a user task through the LLM and available tools."
+
   @behaviour AOS.AgentOS.Role
   alias AOS.AgentOS.Roles.LLM
 
-  def id(), do: :executor
-  def schema(), do: %{}
+  def id, do: :executor
+  def schema, do: %{}
 
   def run(input, _ctx) do
     skills = Map.get(input, :selected_skills, [])

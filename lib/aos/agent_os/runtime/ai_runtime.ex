@@ -5,19 +5,21 @@ defmodule AOS.AgentOS.Runtime.AIRuntime do
   """
   use GenServer
   require Logger
+  alias AOS.AgentOS.Config
+  alias AOS.AgentOS.Runtime.AIPool
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
   def predict(prompt, _opts \\ []) do
-    runtime_type = AOS.AgentOS.Config.runtime_type()
+    runtime_type = Config.runtime_type()
 
     case runtime_type do
       :local ->
         # Use FLAME to run the inference on a specialized worker if needed.
         # The worker node will start this GenServer and load the model.
-        FLAME.call(AOS.AgentOS.Runtime.AIPool, fn ->
+        FLAME.call(AIPool, fn ->
           GenServer.call(__MODULE__, {:predict, prompt}, 120_000)
         end)
 
@@ -31,7 +33,7 @@ defmodule AOS.AgentOS.Runtime.AIRuntime do
     # Only load the model if we are in a FLAME worker or if explicitly told to.
     # This prevents the web node from consuming too much memory.
     if FLAME.Parent.get() do
-      model_name = AOS.AgentOS.Config.agent_local_model()
+      model_name = Config.agent_local_model()
       Logger.info("[AIRuntime] Loading model on FLAME worker: #{model_name}")
 
       # Using a small model for default if not specified to avoid OOM

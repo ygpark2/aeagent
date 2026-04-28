@@ -8,8 +8,8 @@ defmodule AOS.AgentOS.Roles.SkillSelector do
   alias AOS.AgentOS.Skills.Manager, as: SkillManager
   require Logger
 
-  def id(), do: :skill_selector
-  def schema(), do: %{}
+  def id, do: :skill_selector
+  def schema, do: %{}
 
   def run(input, _ctx) do
     message = Map.get(input, :message) || Map.get(input, :task, "")
