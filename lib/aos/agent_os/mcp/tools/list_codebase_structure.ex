@@ -1,4 +1,6 @@
 defmodule AOS.AgentOS.MCP.Tools.ListCodebaseStructure do
+  @moduledoc "MCP tool for summarizing codebase structure."
+
   @behaviour AOS.AgentOS.MCP.ToolAdapter
   alias AOS.Runtime.CommandRunner
 

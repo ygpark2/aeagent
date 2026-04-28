@@ -13,6 +13,7 @@ defmodule AOSWeb.Router do
   pipeline :api do
     plug :accepts, ["json", "json-api"]
     plug :fetch_session
+    plug AOSWeb.Plugs.RateLimit, bucket: :api
   end
 
   pipeline :browser do
@@ -25,6 +26,10 @@ defmodule AOSWeb.Router do
 
   pipeline :admin_auth do
     plug AOSWeb.Plugs.AdminAuth
+  end
+
+  pipeline :api_auth do
+    plug AOSWeb.Plugs.ApiAuth
   end
 
   pipeline :no_prod do
@@ -44,7 +49,7 @@ defmodule AOSWeb.Router do
   end
 
   scope "/", AOSWeb do
-    pipe_through [:browser]
+    pipe_through [:browser, :admin_auth]
 
     # Root route now goes to the Agent Dashboard
     get "/", RedirectController, :to_agent
@@ -61,6 +66,7 @@ defmodule AOSWeb.Router do
   scope "/admin", AOSWeb do
     pipe_through [:browser, :admin_auth]
     live "/skills", SkillAdminLive, :index
+    live "/strategies", StrategyAdminLive, :index
   end
 
   scope "/api", AOSWeb, as: :api do
@@ -70,9 +76,20 @@ defmodule AOSWeb.Router do
       post "/channels/slack/commands", SlackController, :create
       post "/channels/slack/interactions", SlackController, :interact
       post "/webhooks/executions", WebhookController, :create
+    end
+  end
+
+  scope "/api", AOSWeb, as: :api do
+    pipe_through [:api, :api_deserializer, :api_auth]
+
+    scope "/v1", V1, as: :v1 do
       post "/executions/:id/resume", ExecutionController, :resume
       post "/executions/:id/retry", ExecutionController, :retry
       get "/executions/:id/replay", ExecutionController, :replay
+      post "/strategies/prune", StrategyController, :prune
+      get "/strategies/:id/events", StrategyController, :events
+      get "/strategies/:id/executions", StrategyController, :executions
+      resources "/strategies", StrategyController, only: [:index, :show]
       resources "/sessions", SessionController, only: [:index, :show]
       resources "/executions", ExecutionController, only: [:index, :show, :create]
     end

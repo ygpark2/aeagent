@@ -5,8 +5,8 @@ defmodule AOS.AgentOS.Roles.Reporter do
   @behaviour AOS.AgentOS.Role
   alias AOS.AgentOS.Roles.LLM
 
-  def id(), do: :reporter
-  def schema(), do: %{}
+  def id, do: :reporter
+  def schema, do: %{}
 
   def run(input, _ctx) do
     # Try multiple result fields for compatibility

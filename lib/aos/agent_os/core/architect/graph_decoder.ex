@@ -53,7 +53,7 @@ defmodule AOS.AgentOS.Core.Architect.GraphDecoder do
   defp add_transitions(graph, transitions) do
     Enum.reduce(transitions, graph, fn transition, acc ->
       from = normalize_node_id(Map.get(transition, "from"))
-      outcome = normalize_node_id(Map.get(transition, "on"))
+      outcome = normalize_outcome(Map.get(transition, "on"))
       to = normalize_optional_node_id(Map.get(transition, "to"))
       Graph.add_transition(acc, from, outcome, to)
     end)
@@ -63,5 +63,20 @@ defmodule AOS.AgentOS.Core.Architect.GraphDecoder do
   defp normalize_optional_node_id(value), do: normalize_node_id(value)
 
   defp normalize_node_id(value) when is_atom(value), do: value
-  defp normalize_node_id(value) when is_binary(value), do: String.to_atom(value)
+  defp normalize_node_id(value) when is_binary(value), do: value
+
+  defp normalize_outcome(value) when is_atom(value), do: value
+
+  defp normalize_outcome(value) when is_binary(value) do
+    case value do
+      "success" -> :success
+      "ok" -> :ok
+      "error" -> :error
+      "failed" -> :error
+      "failure" -> :error
+      "pass" -> :pass
+      "fail" -> :fail
+      other -> other
+    end
+  end
 end

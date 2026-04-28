@@ -4,6 +4,7 @@ defmodule AOS.AgentOS.Core.Session do
   """
   use AOS.Schema
   import Ecto.Changeset
+  alias AOS.AgentOS.Autonomy
 
   @statuses ~w(active running completed failed blocked archived)
 
@@ -25,6 +26,6 @@ defmodule AOS.AgentOS.Core.Session do
     |> cast(attrs, [:title, :task, :status, :autonomy_level, :metadata, :last_execution_id])
     |> validate_required([:title, :task, :status, :autonomy_level])
     |> validate_inclusion(:status, @statuses)
-    |> validate_inclusion(:autonomy_level, AOS.AgentOS.Autonomy.levels())
+    |> validate_inclusion(:autonomy_level, Autonomy.levels())
   end
 end

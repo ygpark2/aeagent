@@ -18,27 +18,24 @@ defmodule AOS.AgentOS.Skills.Source.Filesystem do
   end
 
   def list_skills do
-    if FileSystem.dir?(skills_dir()) do
-      skills_dir()
-      |> FileSystem.ls()
-      |> case do
-        {:ok, entries} ->
-          entries
-          |> Enum.map(fn skill_id ->
-            skill_path = Path.join(skills_dir(), skill_id)
+    skills_dir()
+    |> list_skill_entries()
+    |> Enum.flat_map(&load_skill_entry/1)
+  end
 
-            if FileSystem.dir?(skill_path) do
-              load_skill(skill_id, skill_path)
-            end
-          end)
-          |> Enum.filter(& &1)
-
-        {:error, _reason} ->
-          []
+  defp list_skill_entries(dir) do
+    if FileSystem.dir?(dir) do
+      case FileSystem.ls(dir) do
+        {:ok, entries} -> Enum.map(entries, &{&1, Path.join(dir, &1)})
+        {:error, _reason} -> []
       end
     else
       []
     end
+  end
+
+  defp load_skill_entry({skill_id, skill_path}) do
+    if FileSystem.dir?(skill_path), do: [load_skill(skill_id, skill_path)], else: []
   end
 
   def load_skill(skill_name) do

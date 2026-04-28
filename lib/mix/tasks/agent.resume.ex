@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Agent.Resume do
+  @moduledoc "Queues a resume execution from a previous execution."
+
   @shortdoc "Resume a queued/blocked/failed execution by creating a new follow-up execution"
 
   use Mix.Task

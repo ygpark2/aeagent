@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Agent.Status do
+  @moduledoc "Prints the status for an Agent OS execution."
+
   @shortdoc "Show the current status of an execution"
 
   use Mix.Task

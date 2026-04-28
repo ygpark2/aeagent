@@ -4,6 +4,7 @@ defmodule AOS.AgentOS.Core.Nodes.Delegator do
   Ensures a delegation target exists.
   """
   @behaviour AOS.AgentOS.Core.Node
+  alias AOS.AgentOS.Autonomy
   alias AOS.AgentOS.Core.{Architect, Engine}
   alias AOS.AgentOS.Executions
   require Logger
@@ -16,8 +17,8 @@ defmodule AOS.AgentOS.Core.Nodes.Delegator do
 
     current_task = Map.get(context, :task, "")
     depth = Map.get(context, :delegation_depth, 0)
-    autonomy_level = Map.get(context, :autonomy_level, AOS.AgentOS.Autonomy.default_level())
-    max_depth = AOS.AgentOS.Autonomy.max_delegation_depth(autonomy_level)
+    autonomy_level = Map.get(context, :autonomy_level, Autonomy.default_level())
+    max_depth = Autonomy.max_delegation_depth(autonomy_level)
 
     cond do
       depth >= max_depth ->
@@ -94,7 +95,7 @@ defmodule AOS.AgentOS.Core.Nodes.Delegator do
       delegation_depth: depth + 1,
       cost_usd: 0.0,
       session_id: Map.get(context, :session_id),
-      autonomy_level: Map.get(context, :autonomy_level, AOS.AgentOS.Autonomy.default_level()),
+      autonomy_level: Map.get(context, :autonomy_level, Autonomy.default_level()),
       selected_skills: Map.get(context, :selected_skills, []),
       skills: Map.get(context, :skills, []),
       execution_id: execution.id

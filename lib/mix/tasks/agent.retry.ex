@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Agent.Retry do
+  @moduledoc "Queues a retry execution for an existing execution."
+
   @shortdoc "Retry an execution by creating a new execution in the same session"
 
   use Mix.Task

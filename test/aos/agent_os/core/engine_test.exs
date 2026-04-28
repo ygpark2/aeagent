@@ -1,7 +1,7 @@
 defmodule AOS.AgentOS.Core.EngineTest do
   use AOS.DataCase, async: true
-  alias AOS.AgentOS.Core.{Graph, Engine}
-  alias AOS.Test.Support.Nodes.{MockWorker, MockEvaluator}
+  alias AOS.AgentOS.Core.{Engine, Graph}
+  alias AOS.Test.Support.Nodes.{MockEvaluator, MockWorker}
 
   describe "Agent Graph Engine" do
     test "successfully executes a simple graph and persists to DB" do

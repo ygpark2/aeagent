@@ -4,30 +4,34 @@ defmodule AOS.AgentOS.Execution.Replay do
   """
 
   alias AOS.AgentOS.Core.{Artifact, DelegationTrace, Execution, Session}
+  alias AOS.AgentOS.Evolution.StrategyRegistry
+  alias AOS.AgentOS.{Executions, Tools}
 
   def replay_execution(execution_id) do
-    execution = AOS.AgentOS.Executions.get_execution!(execution_id)
+    execution = Executions.get_execution!(execution_id)
 
     %{
       execution: serialize_execution(execution),
       session:
         execution.session_id
-        |> AOS.AgentOS.Executions.get_session()
+        |> Executions.get_session()
         |> maybe_serialize_session(),
       lineage: execution.id |> execution_lineage() |> Enum.map(&serialize_execution/1),
+      strategy: strategy_snapshot(execution.strategy_id),
+      strategy_lineage: strategy_lineage(execution.strategy_id),
       latest_checkpoint: latest_checkpoint_snapshot(execution.id),
       artifacts:
         execution.id
-        |> AOS.AgentOS.Executions.list_artifacts()
+        |> Executions.list_artifacts()
         |> Enum.map(&serialize_artifact/1),
       delegation_traces:
         execution.id
-        |> AOS.AgentOS.Executions.list_delegation_traces()
+        |> Executions.list_delegation_traces()
         |> Enum.map(&serialize_delegation_trace/1),
       tool_audits:
         execution.id
-        |> AOS.AgentOS.Tools.list_audits()
-        |> Enum.map(&AOS.AgentOS.Tools.serialize_audit/1)
+        |> Tools.list_audits()
+        |> Enum.map(&Tools.serialize_audit/1)
     }
   end
 
@@ -41,6 +45,10 @@ defmodule AOS.AgentOS.Execution.Replay do
       source_execution_id: execution.source_execution_id,
       trigger_kind: execution.trigger_kind,
       autonomy_level: execution.autonomy_level,
+      strategy_id: execution.strategy_id,
+      fitness_score: execution.fitness_score,
+      quality_score: execution.quality_score,
+      failure_category: execution.failure_category,
       success: execution.success,
       final_result: execution.final_result,
       error_message: execution.error_message,
@@ -51,6 +59,37 @@ defmodule AOS.AgentOS.Execution.Replay do
       inserted_at: execution.inserted_at,
       updated_at: execution.updated_at
     }
+  end
+
+  defp strategy_snapshot(nil), do: nil
+
+  defp strategy_snapshot(strategy_id) do
+    case StrategyRegistry.get_strategy(strategy_id) do
+      nil -> nil
+      strategy -> StrategyRegistry.serialize(strategy)
+    end
+  end
+
+  defp strategy_lineage(nil), do: []
+
+  defp strategy_lineage(strategy_id) do
+    strategy_id
+    |> unfold_strategy_lineage([])
+    |> Enum.reverse()
+  end
+
+  defp unfold_strategy_lineage(nil, acc), do: acc
+
+  defp unfold_strategy_lineage(strategy_id, acc) do
+    case StrategyRegistry.get_strategy(strategy_id) do
+      nil ->
+        acc
+
+      strategy ->
+        unfold_strategy_lineage(strategy.parent_strategy_id, [
+          StrategyRegistry.serialize(strategy) | acc
+        ])
+    end
   end
 
   def serialize_session(%Session{} = session) do
@@ -98,36 +137,47 @@ defmodule AOS.AgentOS.Execution.Replay do
 
   def latest_checkpoint_snapshot(execution_id) do
     execution_id
-    |> AOS.AgentOS.Executions.list_artifacts()
+    |> Executions.list_artifacts()
     |> Enum.reverse()
     |> Enum.find(&(&1.kind == "checkpoint"))
-    |> case do
-      nil ->
-        nil
-
-      artifact ->
-        payload = artifact.payload || %{}
-        context = Map.get(payload, "context") || Map.get(payload, :context) || %{}
-
-        %{
-          artifact_id: artifact.id,
-          label: artifact.label,
-          node_id: Map.get(payload, "node_id") || Map.get(payload, :node_id),
-          next_node_id: Map.get(payload, "next_node_id") || Map.get(payload, :next_node_id),
-          result: Map.get(context, "result") || Map.get(context, :result),
-          feedback: Map.get(context, "feedback") || Map.get(context, :feedback),
-          cost_usd: Map.get(context, "cost_usd") || Map.get(context, :cost_usd),
-          inserted_at: artifact.inserted_at
-        }
-    end
+    |> checkpoint_snapshot()
   end
+
+  defp checkpoint_snapshot(nil), do: nil
+
+  defp checkpoint_snapshot(%Artifact{} = artifact) do
+    payload = artifact.payload || %{}
+    context = get_payload(payload, "context", %{})
+
+    %{
+      artifact_id: artifact.id,
+      label: artifact.label,
+      node_id: get_payload(payload, "node_id"),
+      next_node_id: get_payload(payload, "next_node_id"),
+      result: get_payload(context, "result"),
+      feedback: get_payload(context, "feedback"),
+      cost_usd: get_payload(context, "cost_usd"),
+      inserted_at: artifact.inserted_at
+    }
+  end
+
+  defp get_payload(payload, key, default \\ nil),
+    do: Map.get(payload, key, Map.get(payload, payload_atom(key), default))
+
+  defp payload_atom("context"), do: :context
+  defp payload_atom("node_id"), do: :node_id
+  defp payload_atom("next_node_id"), do: :next_node_id
+  defp payload_atom("result"), do: :result
+  defp payload_atom("feedback"), do: :feedback
+  defp payload_atom("cost_usd"), do: :cost_usd
+  defp payload_atom(key), do: key
 
   defp maybe_serialize_session(nil), do: nil
   defp maybe_serialize_session(session), do: serialize_session(session)
 
   defp execution_lineage(execution_id) do
     execution_id
-    |> AOS.AgentOS.Executions.get_execution!()
+    |> Executions.get_execution!()
     |> Stream.unfold(fn
       nil ->
         nil
@@ -136,7 +186,7 @@ defmodule AOS.AgentOS.Execution.Replay do
         parent =
           case execution.source_execution_id do
             nil -> nil
-            parent_id -> AOS.AgentOS.Executions.get_execution(parent_id)
+            parent_id -> Executions.get_execution(parent_id)
           end
 
         {execution, parent}

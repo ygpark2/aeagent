@@ -37,4 +37,14 @@ defmodule AOS.AgentOS.MCP.InternalShellTest do
     assert execute_command["riskTier"] == "high"
     assert execute_command["requiresConfirmation"] == true
   end
+
+  test "limits command output" do
+    assert {:ok, %{content: [%{text: output}]}} =
+             Shell.call_tool("execute_command", %{
+               "command" => "echo",
+               "args" => [String.duplicate("x", 80_000)]
+             })
+
+    assert byte_size(output) <= 65_000
+  end
 end

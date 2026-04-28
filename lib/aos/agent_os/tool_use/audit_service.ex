@@ -3,12 +3,14 @@ defmodule AOS.AgentOS.ToolUse.AuditService do
   Persists normalized tool execution audits.
   """
 
+  alias AOS.AgentOS.Tools
+
   def persist_tool_audit(opts, server_id, tool_name, metadata, args, result, started_at) do
     execution_id = Keyword.get(opts, :execution_id)
     session_id = Keyword.get(opts, :session_id)
 
     if execution_id do
-      AOS.AgentOS.Tools.create_audit(%{
+      Tools.create_audit(%{
         execution_id: execution_id,
         session_id: session_id,
         server_id: server_id,

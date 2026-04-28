@@ -7,9 +7,9 @@ defmodule AOSWeb.JsonRestTest do
 
   import Mock
 
+  alias AOSWeb.JsonRest
   alias Faker.Internet
   alias HTTPoison.Response
-  alias AOSWeb.JsonRest
 
   @body %{"nice" => "body"}
   @url Internet.url()

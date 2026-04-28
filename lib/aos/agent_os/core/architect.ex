@@ -3,9 +3,17 @@ defmodule AOS.AgentOS.Core.Architect do
   Optimized Strategic Architect with configurable retry logic and LTM.
   Ensures strict domain detection and clean JSON output.
   """
-  alias AOS.AgentOS.Core.Architect.{DomainDetector, GraphDecoder, MemoryBank}
-  alias AOS.AgentOS.Core.{Graph, NodeRegistry}
+  alias AOS.AgentOS.Config
+  alias AOS.AgentOS.Core.Architect.DomainDetector
+  alias AOS.AgentOS.Core.Architect.GraphDecoder
+  alias AOS.AgentOS.Core.Architect.MemoryBank
+  alias AOS.AgentOS.Core.Graph
+  alias AOS.AgentOS.Core.NodeRegistry
+  alias AOS.AgentOS.Core.Nodes.LLMWorker
+  alias AOS.AgentOS.Core.Nodes.PanelDebate
+  alias AOS.AgentOS.Evolution.{StrategyRegistry, StrategySelector}
   alias AOS.AgentOS.Roles.LLM
+  alias AOS.AgentOS.Roles.Reporter
   require Logger
 
   def build_graph(task, opts \\ [])
@@ -17,7 +25,7 @@ defmodule AOS.AgentOS.Core.Architect do
   def build_graph(task, opts) do
     notify_pid = Keyword.get(opts, :notify)
     current_retry = Keyword.get(opts, :retry_count, 0)
-    max_retries = AOS.AgentOS.Config.architect_max_retries()
+    max_retries = Config.architect_max_retries()
 
     if notify_pid,
       do:
@@ -37,6 +45,17 @@ defmodule AOS.AgentOS.Core.Architect do
     domain = DomainDetector.detect_domain(task)
     Logger.info("[Architect] Detected Domain: #{domain}")
 
+    case StrategySelector.select(domain, task) do
+      {:ok, graph} ->
+        Logger.info("[Architect] Reusing evolved strategy: #{graph.strategy_id}")
+        graph
+
+      _none ->
+        design_new_graph_with_llm(task, opts, current_retry, max_retries, domain)
+    end
+  end
+
+  defp design_new_graph_with_llm(task, opts, current_retry, max_retries, domain) do
     available_nodes = NodeRegistry.list_nodes_for_domain(domain)
     memories = MemoryBank.fetch_past_successes(domain, task)
 
@@ -59,7 +78,7 @@ defmodule AOS.AgentOS.Core.Architect do
       {:ok, response} ->
         case GraphDecoder.parse_and_build(response, domain) do
           {:ok, graph} ->
-            graph
+            register_strategy(domain, task, graph)
 
           {:error, reason} ->
             handle_retry(
@@ -73,6 +92,17 @@ defmodule AOS.AgentOS.Core.Architect do
 
       {:error, reason} ->
         handle_retry(task, opts, current_retry, max_retries, "LLM error: #{inspect(reason)}")
+    end
+  end
+
+  defp register_strategy(domain, task, graph) do
+    if Config.evolution_enabled?() do
+      case StrategyRegistry.register_graph(domain, task, graph, %{"source" => "architect_llm"}) do
+        {:ok, strategy} -> StrategyRegistry.attach_strategy(graph, strategy, :architect_llm)
+        _error -> graph
+      end
+    else
+      graph
     end
   end
 
@@ -114,8 +144,8 @@ defmodule AOS.AgentOS.Core.Architect do
 
   defp emergency_graph do
     Graph.new(:emergency_graph)
-    |> Graph.add_node(:worker, AOS.AgentOS.Core.Nodes.LLMWorker)
-    |> Graph.add_node(:reporter, AOS.AgentOS.Roles.Reporter)
+    |> Graph.add_node(:worker, LLMWorker)
+    |> Graph.add_node(:reporter, Reporter)
     |> Graph.set_initial(:worker)
     |> Graph.add_transition(:worker, :success, :reporter)
     |> Graph.add_transition(:reporter, :success, nil)
@@ -123,8 +153,8 @@ defmodule AOS.AgentOS.Core.Architect do
 
   defp panel_debate_graph do
     Graph.new(:panel_debate_graph)
-    |> Graph.add_node(:panel_debate, AOS.AgentOS.Core.Nodes.PanelDebate)
-    |> Graph.add_node(:reporter, AOS.AgentOS.Roles.Reporter)
+    |> Graph.add_node(:panel_debate, PanelDebate)
+    |> Graph.add_node(:reporter, Reporter)
     |> Graph.set_initial(:panel_debate)
     |> Graph.add_transition(:panel_debate, :success, :reporter)
     |> Graph.add_transition(:reporter, :success, nil)

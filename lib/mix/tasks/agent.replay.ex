@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Agent.Replay do
+  @moduledoc "Prints an execution replay bundle."
+
   @shortdoc "Show a replay bundle for a past execution"
 
   use Mix.Task

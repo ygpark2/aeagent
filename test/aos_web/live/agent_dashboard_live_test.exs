@@ -3,6 +3,10 @@ defmodule AOSWeb.AgentDashboardLiveTest do
 
   import Phoenix.LiveViewTest
 
+  setup %{conn: conn} do
+    {:ok, conn: put_admin_session(conn)}
+  end
+
   test "renders approval request and approves tool execution", %{conn: conn} do
     {:ok, view, _html} = live(conn, "/agent")
 
@@ -145,7 +149,7 @@ defmodule AOSWeb.AgentDashboardLiveTest do
     {:ok, view, _html} = live(conn, "/agent")
 
     view
-    |> element("button[phx-click=\"switch_right_tab\"][phx-value-tab=\"settings\"]")
+    |> element(~s(button[phx-click="switch_right_tab"][phx-value-tab="settings"]))
     |> render_click()
 
     html = render(view)
@@ -160,7 +164,7 @@ defmodule AOSWeb.AgentDashboardLiveTest do
     {:ok, view, _html} = live(conn, "/agent")
 
     view
-    |> element("button[phx-click=\"switch_right_tab\"][phx-value-tab=\"settings\"]")
+    |> element(~s(button[phx-click="switch_right_tab"][phx-value-tab="settings"]))
     |> render_click()
 
     view

@@ -5,7 +5,9 @@ defmodule AOS.AgentOS.Execution.Store do
 
   import Ecto.Query
 
+  alias AOS.AgentOS.Autonomy
   alias AOS.AgentOS.Core.{Artifact, DelegationTrace, Execution, Session}
+  alias AOS.AgentOS.Execution.StateMachine
   alias AOS.Repo
 
   @default_limit 20
@@ -42,7 +44,7 @@ defmodule AOS.AgentOS.Execution.Store do
       task: "unknown",
       status: "queued",
       trigger_kind: "manual",
-      autonomy_level: AOS.AgentOS.Autonomy.default_level(),
+      autonomy_level: Autonomy.default_level(),
       success: false,
       execution_log: %{steps: []}
     }
@@ -53,11 +55,22 @@ defmodule AOS.AgentOS.Execution.Store do
   end
 
   def update_execution(id, attrs) do
-    id
-    |> get_execution!()
-    |> Execution.changeset(attrs)
-    |> Repo.update()
+    execution = get_execution!(id)
+
+    with :ok <- validate_status_transition(execution, attrs) do
+      execution
+      |> Execution.changeset(attrs)
+      |> Repo.update()
+    end
   end
+
+  defp validate_status_transition(execution, %{status: next}),
+    do: StateMachine.transition(execution.status, next)
+
+  defp validate_status_transition(execution, %{"status" => next}),
+    do: StateMachine.transition(execution.status, next)
+
+  defp validate_status_transition(_execution, _attrs), do: :ok
 
   def create_session(task, title, autonomy_level) do
     session_title =

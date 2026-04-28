@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Agent.Logs do
+  @moduledoc "Prints logs, artifacts, and tool audits for an execution."
+
   @shortdoc "Show stored artifacts/logs for an execution"
 
   use Mix.Task

@@ -5,6 +5,7 @@ defmodule AOS.AgentOS.MCP.Manager do
   use GenServer
   require Logger
   alias AOS.AgentOS.MCP.Client
+  alias AOS.AgentOS.MCP.Internal.Shell
 
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
@@ -12,7 +13,7 @@ defmodule AOS.AgentOS.MCP.Manager do
 
   def all_tools do
     internal_tools =
-      case AOS.AgentOS.MCP.Internal.Shell.list_tools() do
+      case Shell.list_tools() do
         {:ok, %{"tools" => tools}} -> Enum.map(tools, &Map.put(&1, "server_id", "internal"))
         _ -> []
       end
@@ -22,11 +23,11 @@ defmodule AOS.AgentOS.MCP.Manager do
   end
 
   def call_tool("internal", tool_name, arguments) do
-    AOS.AgentOS.MCP.Internal.Shell.call_tool(tool_name, arguments)
+    Shell.call_tool(tool_name, arguments)
   end
 
   def call_tool(server_id, tool_name, arguments) do
-    GenServer.call(__MODULE__, {:call_tool, server_id, tool_name, arguments}, 60000)
+    GenServer.call(__MODULE__, {:call_tool, server_id, tool_name, arguments}, 60_000)
   end
 
   @impl true

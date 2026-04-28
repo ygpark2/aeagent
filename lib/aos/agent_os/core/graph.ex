@@ -6,6 +6,9 @@ defmodule AOS.AgentOS.Core.Graph do
   defstruct [
     :id,
     :initial_node,
+    :strategy_id,
+    :strategy_blueprint,
+    :strategy_source,
     # %{node_id => node_module}
     nodes: %{},
     # %{node_id => [%{on: outcome, to: next_node_id}]}

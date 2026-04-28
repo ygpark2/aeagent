@@ -1,6 +1,7 @@
 import Config
 
-# These environment variables MUST be captured in the release config for them to be available in the deployed app. The Environment variables will NOT be available yet during the environment build (config/{dev, staging, prod}.ex).
+# These environment variables MUST be captured in the release config for them
+# to be available in the deployed app. They are not available during build.
 
 admin_users = System.get_env("ADMIN_USERS") || "[]"
 
@@ -23,12 +24,20 @@ secret_key_base =
 website_host =
   System.get_env("WEBSITE_HOST") || raise("environment variable WEBSITE_HOST is missing.")
 
+env =
+  case System.get_env("MIX_ENV") || "prod" do
+    "prod" -> :prod
+    "staging" -> :staging
+    "aeagent" -> :aeagent
+    other -> raise("MIX_ENV must be prod, staging, or aeagent; got #{other}")
+  end
+
 # Configurations the app itself
 config :aos,
   admin_users: admin_users,
   base_url: "https://#{website_host}",
   database_url: database_url,
-  env: System.get_env("MIX_ENV") |> String.to_atom(),
+  env: env,
   encryption_keys: encryption_keys,
   old_admin_users: old_admin_users,
   scheme: "https",

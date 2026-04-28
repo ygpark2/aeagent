@@ -4,6 +4,8 @@ defmodule AOSWeb.VersionController do
 
   import Plug.Conn
 
+  alias AOS.AgentOS.Operations
+
   action_fallback AOSWeb.FallbackController
 
   def index(conn, _params) do
@@ -11,7 +13,7 @@ defmodule AOSWeb.VersionController do
 
     json(conn, %{
       releaseId: app_version,
-      status: AOS.AgentOS.Operations.doctor().status,
+      status: Operations.doctor().status,
       version: "v1"
     })
   end

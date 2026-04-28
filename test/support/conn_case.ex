@@ -18,6 +18,8 @@ defmodule AOSWeb.ConnCase do
   use ExUnit.CaseTemplate
   use AOS.Constants.General
 
+  alias Ecto.Adapters.SQL.Sandbox
+
   using do
     quote do
       # Ensure Logger is available in tests.
@@ -32,20 +34,20 @@ defmodule AOSWeb.ConnCase do
       import AOS.DataFactory
       import AOS.TestData
 
-      alias AOSWeb.Router.Helpers, as: Routes
       alias AOS.TestUtils
+      alias AOSWeb.Router.Helpers, as: Routes
 
       # The default endpoint for testing
       @endpoint AOSWeb.Endpoint
     end
   end
 
-  setup _tags do
-    # :ok = Ecto.Adapters.SQL.Sandbox.checkout(AOS.Repo)
+  setup tags do
+    :ok = Sandbox.checkout(AOS.Repo)
 
-    # unless tags[:async] do
-    #   Ecto.Adapters.SQL.Sandbox.mode(AOS.Repo, {:shared, self()})
-    # end
+    unless tags[:async] do
+      Sandbox.mode(AOS.Repo, {:shared, self()})
+    end
 
     # if tags[:legacy] do
     #   :ok = Ecto.Adapters.SQL.Sandbox.checkout(AOS.LegacyRepo)
@@ -56,5 +58,13 @@ defmodule AOSWeb.ConnCase do
     # end
 
     {:ok, conn: Phoenix.ConnTest.build_conn() |> Plug.Test.init_test_session(%{})}
+  end
+
+  def put_api_auth(conn) do
+    Plug.Conn.put_req_header(conn, "x-aos-api-key", Application.fetch_env!(:aos, :api_key))
+  end
+
+  def put_admin_session(conn) do
+    Plug.Test.init_test_session(conn, %{admin_logged_in: true})
   end
 end

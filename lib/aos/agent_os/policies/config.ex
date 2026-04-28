@@ -3,7 +3,7 @@ defmodule AOS.AgentOS.Policies.Config do
   Typed access to policy-related configuration.
   """
 
-  alias AOS.AgentOS.Config
+  alias AOS.AgentOS.{Autonomy, Config}
 
   def budget_limits(nil) do
     %{
@@ -13,11 +13,11 @@ defmodule AOS.AgentOS.Policies.Config do
   end
 
   def budget_limits(autonomy_level) do
-    normalized = AOS.AgentOS.Autonomy.normalize_level(autonomy_level)
+    normalized = Autonomy.normalize_level(autonomy_level)
 
     %{
-      max_loops: AOS.AgentOS.Autonomy.max_loops(normalized),
-      max_cost_usd: AOS.AgentOS.Autonomy.max_cost_usd(normalized)
+      max_loops: Autonomy.max_loops(normalized),
+      max_cost_usd: Autonomy.max_cost_usd(normalized)
     }
   end
 

@@ -4,6 +4,7 @@ defmodule AOS.AgentOS.Core.Execution do
   """
   use AOS.Schema
   import Ecto.Changeset
+  alias AOS.AgentOS.Autonomy
 
   @statuses ~w(queued running succeeded failed blocked)
 
@@ -17,6 +18,10 @@ defmodule AOS.AgentOS.Core.Execution do
     field :status, :string, default: "queued"
     field :trigger_kind, :string
     field :autonomy_level, :string, default: "supervised"
+    field :strategy_id, Ecto.UUID
+    field :fitness_score, :float
+    field :quality_score, :float
+    field :failure_category, :string
     field :success, :boolean, default: false
     field :execution_log, :map
     field :final_result, :string
@@ -37,6 +42,10 @@ defmodule AOS.AgentOS.Core.Execution do
       :status,
       :trigger_kind,
       :autonomy_level,
+      :strategy_id,
+      :fitness_score,
+      :quality_score,
+      :failure_category,
       :success,
       :execution_log,
       :final_result,
@@ -46,6 +55,6 @@ defmodule AOS.AgentOS.Core.Execution do
     ])
     |> validate_required([:domain, :task])
     |> validate_inclusion(:status, @statuses)
-    |> validate_inclusion(:autonomy_level, AOS.AgentOS.Autonomy.levels())
+    |> validate_inclusion(:autonomy_level, Autonomy.levels())
   end
 end

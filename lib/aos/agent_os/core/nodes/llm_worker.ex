@@ -1,4 +1,6 @@
 defmodule AOS.AgentOS.Core.Nodes.LLMWorker do
+  @moduledoc "Graph node that performs task work through an LLM."
+
   @behaviour AOS.AgentOS.Core.Node
   alias AOS.AgentOS.Roles.LLM
   require Logger

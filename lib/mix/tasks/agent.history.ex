@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Agent.History do
+  @moduledoc "Lists recent Agent OS executions."
+
   @shortdoc "List recent executions"
 
   use Mix.Task

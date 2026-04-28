@@ -29,21 +29,82 @@ try do
   end)
 rescue
   _ ->
-    IO.puts(
-      IO.ANSI.yellow() <>
-        "There was no `.env#{env}` file found. Please ensure the required environment variables have been set." <>
-        IO.ANSI.reset()
-    )
+    if Mix.env() not in [:dev, :test] do
+      IO.puts(
+        IO.ANSI.yellow() <>
+          "There was no `.env#{env}` file found. Please ensure the required environment variables have been set." <>
+          IO.ANSI.reset()
+      )
+    end
 end
 
 admin_users = System.get_env("ADMIN_USERS") || "[]"
 
 old_admin_users = System.get_env("ADMIN_USERS_OLD") || admin_users
 
+default_secret = fn env_name, dev_default ->
+  case Mix.env() do
+    env when env in [:dev, :test] ->
+      System.get_env(env_name) || dev_default
+
+    _env ->
+      System.get_env(env_name) || raise("#{env_name} must be set")
+  end
+end
+
+known_atom = fn env_name, default, allowed ->
+  value = System.get_env(env_name) || default
+
+  case Enum.find(allowed, &(to_string(&1) == value)) do
+    nil -> raise("#{env_name} must be one of: #{Enum.map_join(allowed, ", ", &to_string/1)}")
+    atom -> atom
+  end
+end
+
+integer_env = fn env_name, default ->
+  case System.get_env(env_name) do
+    nil ->
+      default
+
+    value ->
+      case Integer.parse(value) do
+        {parsed, ""} when parsed >= 0 -> parsed
+        _ -> raise("#{env_name} must be a non-negative integer")
+      end
+  end
+end
+
+float_env = fn env_name, default ->
+  case System.get_env(env_name) do
+    nil ->
+      default
+
+    value ->
+      case Float.parse(value) do
+        {parsed, ""} when parsed >= 0.0 -> parsed
+        _ -> raise("#{env_name} must be a non-negative number")
+      end
+  end
+end
+
+boolean_env = fn env_name, default ->
+  case System.get_env(env_name) do
+    nil ->
+      default
+
+    value ->
+      case String.downcase(value) do
+        normalized when normalized in ["true", "1", "yes", "on"] -> true
+        normalized when normalized in ["false", "0", "no", "off"] -> false
+        _normalized -> raise("#{env_name} must be true or false")
+      end
+  end
+end
+
 config :aos,
   admin_users: admin_users,
   admin_auth_provider: AOS.Admin.Credentials.EnvProvider,
-  admin_password: System.get_env("ADMIN_PASSWORD") || "admin",
+  admin_password: default_secret.("ADMIN_PASSWORD", "admin"),
   admin_password_hash: System.get_env("ADMIN_PASSWORD_HASH"),
   admin_username: System.get_env("ADMIN_USERNAME") || "admin",
   ecto_repos: [AOS.Repo],
@@ -51,21 +112,37 @@ config :aos,
   env: Mix.env(),
   namespace: AOS,
   old_admin_users: old_admin_users,
-  agent_api_key: System.get_env("AGENT_API_KEY") || "my-factory-api-key",
+  secure_cookies: false,
+  api_key: default_secret.("AOS_API_KEY", "dev-aos-api-key"),
+  agent_api_key: default_secret.("AGENT_API_KEY", "my-factory-api-key"),
   agent_base_url: System.get_env("AGENT_BASE_URL") || "http://localhost:8317/v1beta",
   agent_model: System.get_env("AGENT_MODEL") || "models/gemini-3-pro-preview",
+  llm_provider: nil,
   # :api or :local
-  agent_runtime_type: (System.get_env("AGENT_RUNTIME_TYPE") || "api") |> String.to_atom(),
+  agent_runtime_type: known_atom.("AGENT_RUNTIME_TYPE", "api", [:api, :local]),
   agent_local_model: System.get_env("AGENT_LOCAL_MODEL") || "google/gemma-2-2b-it",
   database_path: System.get_env("DATABASE_PATH") || "priv/repo/aos_dev.db",
-  active_profile: (System.get_env("AGENT_PROFILE") || "jobdori") |> String.to_atom(),
+  active_profile: known_atom.("AGENT_PROFILE", "jobdori", [:jobdori, :default]),
   cliproxy_api: System.get_env("CLIPROXYAPI") == "true",
   domain_success_cap: 1000,
+  failed_retention_days: integer_env.("FAILED_RETENTION_DAYS", 1),
+  success_retention_days: integer_env.("SUCCESS_RETENTION_DAYS", 30),
+  api_rate_limit:
+    {integer_env.("API_RATE_LIMIT_REQUESTS", 60),
+     integer_env.("API_RATE_LIMIT_WINDOW_MS", 60_000)},
+  evolution_enabled: boolean_env.("EVOLUTION_ENABLED", true),
+  evolution_mutation_threshold: float_env.("EVOLUTION_MUTATION_THRESHOLD", 0.7),
+  evolution_archive_min_usage: integer_env.("EVOLUTION_ARCHIVE_MIN_USAGE", 5),
+  evolution_archive_success_rate: float_env.("EVOLUTION_ARCHIVE_SUCCESS_RATE", 0.2),
+  evolution_experiment_min_usage: integer_env.("EVOLUTION_EXPERIMENT_MIN_USAGE", 3),
+  evolution_exploration_rate: float_env.("EVOLUTION_EXPLORATION_RATE", 0.1),
+  evolution_quality_evaluator_enabled: boolean_env.("EVOLUTION_QUALITY_EVALUATOR_ENABLED", false),
   architect_max_retries: 1,
   workspace_root: File.cwd!(),
   default_autonomy_level: System.get_env("DEFAULT_AUTONOMY_LEVEL") || "supervised",
-  webhook_shared_secret: System.get_env("WEBHOOK_SHARED_SECRET") || "dev-webhook-secret",
-  slack_shared_secret: System.get_env("SLACK_SHARED_SECRET") || "dev-slack-secret",
+  webhook_shared_secret: default_secret.("WEBHOOK_SHARED_SECRET", "dev-webhook-secret"),
+  slack_shared_secret: default_secret.("SLACK_SHARED_SECRET", "dev-slack-secret"),
+  slack_signing_secret: default_secret.("SLACK_SIGNING_SECRET", "dev-slack-signing-secret"),
   max_agent_loops: 5,
   max_agent_cost_usd: 5.0,
   session_history_recent_turns: 6,

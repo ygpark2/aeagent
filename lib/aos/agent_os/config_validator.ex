@@ -3,8 +3,8 @@ defmodule AOS.AgentOS.ConfigValidator do
   Validates runtime configuration during application boot.
   """
 
-  alias AOS.AgentOS.Config
   alias AOS.AgentOS.Channels.SecurityConfig
+  alias AOS.AgentOS.Config
 
   @runtime_types [:api, :local]
 

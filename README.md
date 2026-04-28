@@ -47,12 +47,56 @@
 # 의존성 설치
 mix deps.get
 
+# 환경 변수 준비
+cp .env-sample .env
+
 # 데이터베이스 준비
 mix ecto.setup
 
 # 에이전트 가동
 mix phx.server
 ```
+
+## 운영 설정
+
+프로덕션과 스테이징에서는 다음 값이 없으면 부팅이 실패합니다. 로컬 개발은 `.env-sample`의 기본 구조를 복사해 시작할 수 있지만, 공유 환경에서는 반드시 별도 값을 사용하세요.
+
+- `ADMIN_USERNAME`, `ADMIN_PASSWORD` 또는 `ADMIN_PASSWORD_HASH`: `/agent`, `/admin/skills` 접근용 관리자 인증입니다. 공유 환경에서는 평문 비밀번호보다 해시 값을 권장합니다.
+- `AOS_API_KEY`: `/api/v1/executions`, `/api/v1/sessions`, resume/retry/replay API 인증 키입니다.
+- `AGENT_RUNTIME_TYPE`: `api` 또는 `local`입니다.
+- `AGENT_BASE_URL`, `AGENT_MODEL`, `AGENT_API_KEY`: OpenAI 호환 API 런타임 설정입니다.
+- `WEBHOOK_SHARED_SECRET`, `SLACK_SHARED_SECRET`, `SLACK_SIGNING_SECRET`: 외부 채널 요청 검증용 secret입니다.
+- `FAILED_RETENTION_DAYS`, `SUCCESS_RETENTION_DAYS`: 실패/성공 실행 이력 보존 정책입니다.
+- `API_RATE_LIMIT_REQUESTS`, `API_RATE_LIMIT_WINDOW_MS`: API fixed-window rate limit입니다.
+- `EVOLUTION_ENABLED`, `EVOLUTION_MUTATION_THRESHOLD`: 전략 재사용/변형 레이어 활성화와 mutation 기준 fitness입니다.
+- `EVOLUTION_ARCHIVE_MIN_USAGE`, `EVOLUTION_ARCHIVE_SUCCESS_RATE`, `EVOLUTION_EXPERIMENT_MIN_USAGE`: 저성과 전략 archive와 mutation child 승격 기준입니다.
+
+보호 API는 `Authorization: Bearer <AOS_API_KEY>` 또는 `x-aos-api-key: <AOS_API_KEY>` 헤더를 요구합니다.
+
+```bash
+curl -H "authorization: Bearer $AOS_API_KEY" \
+  http://localhost:4000/api/v1/executions
+```
+
+운영 상태 점검은 다음 엔드포인트와 CLI에서 확인할 수 있습니다.
+
+```bash
+curl http://localhost:4000/healthcheck/doctor
+curl http://localhost:4000/healthcheck/metrics
+mix agent.doctor
+mix agent.metrics
+```
+
+## 개발과 테스트
+
+테스트 환경은 실제 LLM 대신 deterministic fake provider를 사용합니다. 네트워크나 외부 모델 키 없이도 Architect 경로를 검증할 수 있습니다.
+
+```bash
+mix test
+mix credo --strict
+```
+
+`config/test.exs`는 높은 rate limit을 사용하므로 일반 컨트롤러 테스트가 throttle에 걸리지 않습니다. rate limit 동작은 별도 plug 테스트에서 낮은 한도로 검증합니다.
 
 ## 💻 CLI 사용법
 웹 UI 없이도 실행을 만들고 추적할 수 있습니다.
@@ -98,6 +142,22 @@ mix agent.replay <execution_id>
 # 런타임 진단/메트릭
 mix agent.doctor
 mix agent.metrics
+
+# 진화 전략 조회
+mix agent.strategies
+mix agent.strategies --domain general --limit 5
+mix agent.strategies --include-inactive
+mix agent.strategy <strategy_id>
+mix agent.strategies.prune
+```
+
+전략은 API로도 조회할 수 있습니다.
+
+```bash
+curl -H "authorization: Bearer $AOS_API_KEY" http://localhost:4000/api/v1/strategies
+curl -H "authorization: Bearer $AOS_API_KEY" http://localhost:4000/api/v1/strategies/<strategy_id>
+curl -H "authorization: Bearer $AOS_API_KEY" http://localhost:4000/api/v1/strategies/<strategy_id>/events
+curl -H "authorization: Bearer $AOS_API_KEY" http://localhost:4000/api/v1/strategies/<strategy_id>/executions
 ```
 
 CLI 명령은 모두 애플리케이션을 부팅한 뒤 현재 DB를 기준으로 동작합니다. 먼저 `mix ecto.migrate`를 적용해 두는 편이 안전합니다.

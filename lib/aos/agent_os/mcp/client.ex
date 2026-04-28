@@ -11,11 +11,15 @@ defmodule AOS.AgentOS.MCP.Client do
   end
 
   def list_tools(pid) do
-    GenServer.call(pid, {:request, "tools/list", %{}}, 30000)
+    GenServer.call(pid, {:request, "tools/list", %{}}, 30_000)
   end
 
   def call_tool(pid, tool_name, arguments) do
-    GenServer.call(pid, {:request, "tools/call", %{name: tool_name, arguments: arguments}}, 60000)
+    GenServer.call(
+      pid,
+      {:request, "tools/call", %{name: tool_name, arguments: arguments}},
+      60_000
+    )
   end
 
   @impl true

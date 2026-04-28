@@ -5,6 +5,7 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
 
   alias AOS.AgentOS.Core.Artifact
   alias AOS.AgentOS.Execution.{CheckpointSnapshot, CheckpointStore, ResumeContext}
+  alias AOS.AgentOS.Executions
 
   @default_resume_mode "next_node"
   @resume_modes [@default_resume_mode, "checkpoint_node"]
@@ -45,7 +46,7 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
   end
 
   def initial_context_for_run(execution_id, initial_context) do
-    execution = AOS.AgentOS.Executions.get_execution!(execution_id)
+    execution = Executions.get_execution!(execution_id)
 
     base_context =
       cond do
@@ -86,8 +87,13 @@ defmodule AOS.AgentOS.Execution.CheckpointService do
   end
 
   defp payload_map(payload, key) do
-    Map.get(payload, key) || Map.get(payload, String.to_atom(key)) || %{}
+    Map.get(payload, key) || Map.get(payload, known_payload_key(key)) || %{}
   end
+
+  defp known_payload_key("context"), do: :context
+  defp known_payload_key("node_id"), do: :node_id
+  defp known_payload_key("next_node_id"), do: :next_node_id
+  defp known_payload_key(key), do: key
 
   defp deserialize_resume_context(context) when is_map(context) do
     ResumeContext.from_map(context)

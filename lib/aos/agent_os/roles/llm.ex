@@ -4,6 +4,8 @@ defmodule AOS.AgentOS.Roles.LLM do
   Includes handling for :empty_response as a retryable error.
   """
   alias AOS.AgentOS.LLM.{Client, Usage}
+  alias AOS.AgentOS.MCP.Manager
+  alias AOS.AgentOS.Tools
   alias AOS.AgentOS.ToolUse.{ApprovalService, AuditService}
 
   def call(prompt, opts \\ []) do
@@ -26,42 +28,48 @@ defmodule AOS.AgentOS.Roles.LLM do
   end
 
   defp call_with_tools(prompt, history, opts, notify_pid, depth \\ 0, acc_meta \\ empty_meta()) do
-    if depth > 10 do
-      {:ok, Map.merge(acc_meta, %{text: "Too many tool calls."})}
-    else
-      mcp_tools =
-        AOS.AgentOS.MCP.Manager.all_tools()
-        |> AOS.AgentOS.Tools.permitted_tools(Keyword.get(opts, :selected_skills, []))
+    if depth > 10,
+      do: {:ok, Map.merge(acc_meta, %{text: "Too many tool calls."})},
+      else: continue_tool_loop(prompt, history, opts, notify_pid, depth, acc_meta)
+  end
 
-      current_history = if depth == 0 and prompt, do: history ++ [{"user", prompt}], else: history
+  defp continue_tool_loop(prompt, history, opts, notify_pid, depth, acc_meta) do
+    current_history = current_tool_history(prompt, history, depth)
 
-      case execute_call_raw(nil, current_history, Keyword.put(opts, :tools, mcp_tools)) do
-        {:ok, %{"tool_calls" => tool_calls} = meta} when not is_nil(tool_calls) ->
-          merged_meta = merge_meta(acc_meta, meta)
+    case execute_call_raw(nil, current_history, Keyword.put(opts, :tools, permitted_tools(opts))) do
+      {:ok, %{"tool_calls" => tool_calls} = meta} when not is_nil(tool_calls) ->
+        new_history = current_history ++ tool_response_messages(tool_calls, notify_pid, opts)
+        call_with_tools(nil, new_history, opts, notify_pid, depth + 1, merge_meta(acc_meta, meta))
 
-          tool_results =
-            Enum.map(tool_calls, fn tc ->
-              res = execute_single_tool(tc, notify_pid, opts)
-              {tc["id"], tc["name"], res}
-            end)
+      {:ok, %{"text" => text} = meta} ->
+        {:ok, Map.merge(merge_meta(acc_meta, meta), %{text: text})}
 
-          assistant_message = {"assistant", %{tool_calls: tool_calls}}
-
-          tool_result_messages =
-            Enum.map(tool_results, fn {id, name, res} ->
-              {"tool", %{id: id, name: name, content: res}}
-            end)
-
-          new_history = current_history ++ [assistant_message] ++ tool_result_messages
-          call_with_tools(nil, new_history, opts, notify_pid, depth + 1, merged_meta)
-
-        {:ok, %{"text" => text} = meta} ->
-          {:ok, Map.merge(merge_meta(acc_meta, meta), %{text: text})}
-
-        {:error, reason} ->
-          {:error, reason}
-      end
+      {:error, reason} ->
+        {:error, reason}
     end
+  end
+
+  defp current_tool_history(prompt, history, 0) when not is_nil(prompt),
+    do: history ++ [{"user", prompt}]
+
+  defp current_tool_history(_prompt, history, _depth), do: history
+
+  defp permitted_tools(opts) do
+    Manager.all_tools()
+    |> Tools.permitted_tools(Keyword.get(opts, :selected_skills, []))
+  end
+
+  defp tool_response_messages(tool_calls, notify_pid, opts) do
+    tool_results =
+      Enum.map(tool_calls, fn tool_call ->
+        {tool_call["id"], tool_call["name"], execute_single_tool(tool_call, notify_pid, opts)}
+      end)
+
+    [{"assistant", %{tool_calls: tool_calls}} | Enum.map(tool_results, &tool_result_message/1)]
+  end
+
+  defp tool_result_message({id, name, result}) do
+    {"tool", %{id: id, name: name, content: result}}
   end
 
   defp execute_single_tool(%{"name" => full_name, "arguments" => args}, notify_pid, opts) do
@@ -75,7 +83,7 @@ defmodule AOS.AgentOS.Roles.LLM do
 
     display_name = "Tool: #{tool_name}"
 
-    metadata = AOS.AgentOS.Tools.metadata_for(server_id, tool_name)
+    metadata = Tools.metadata_for(server_id, tool_name)
 
     decision =
       ApprovalService.request_tool_confirmation(
@@ -101,7 +109,7 @@ defmodule AOS.AgentOS.Roles.LLM do
     attempts = attempts_from_result(raw_result)
 
     result =
-      AOS.AgentOS.Tools.normalize_result(
+      Tools.normalize_result(
         server_id,
         tool_name,
         args,
@@ -144,7 +152,7 @@ defmodule AOS.AgentOS.Roles.LLM do
 
   defp call_tool_with_retry(server_id, tool_name, args, metadata, attempt) do
     result =
-      case AOS.AgentOS.MCP.Manager.call_tool(server_id, tool_name, args) do
+      case Manager.call_tool(server_id, tool_name, args) do
         {:ok, res} -> {:ok, res}
         {:error, err} -> {:error, err}
       end

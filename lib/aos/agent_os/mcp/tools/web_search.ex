@@ -1,4 +1,6 @@
 defmodule AOS.AgentOS.MCP.Tools.WebSearch do
+  @moduledoc "MCP tool for web search."
+
   @behaviour AOS.AgentOS.MCP.ToolAdapter
 
   require Logger

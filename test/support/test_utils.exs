@@ -3,16 +3,14 @@ defmodule AOS.TestUtils do
   Test Utility functions.
   """
 
-  use AOS.DataCase
-
   alias AOS.SchemaHelper
 
-  def is_map_fully_replicated?(original_map, new_map) do
+  def map_fully_replicated?(original_map, new_map) do
     original_map
     |> Enum.reduce(true, fn {key, item}, accum ->
       new_map
       |> Map.get(key)
-      |> is_equal?(item)
+      |> equal?(item)
       |> case do
         true -> accum
         false -> false
@@ -41,16 +39,16 @@ defmodule AOS.TestUtils do
       if prop in ignore do
         true
       else
-        Map.get(map1, prop) |> is_equal?(Map.get(map2, prop))
+        Map.get(map1, prop) |> equal?(Map.get(map2, prop))
       end
     end)
   end
 
-  defp is_equal?(%DateTime{} = one, %DateTime{} = two) do
+  defp equal?(%DateTime{} = one, %DateTime{} = two) do
     Timex.diff(one, two, :second) <= 1
   end
 
-  defp is_equal?(one, two) when is_atom(one), do: is_equal?(one |> to_string, two)
-  defp is_equal?(one, two) when is_atom(two), do: is_equal?(one, two |> to_string)
-  defp is_equal?(one, two), do: one === two
+  defp equal?(one, two) when is_atom(one), do: equal?(one |> to_string, two)
+  defp equal?(one, two) when is_atom(two), do: equal?(one, two |> to_string)
+  defp equal?(one, two), do: one === two
 end

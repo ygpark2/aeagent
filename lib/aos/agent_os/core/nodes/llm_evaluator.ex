@@ -1,4 +1,6 @@
 defmodule AOS.AgentOS.Core.Nodes.LLMEvaluator do
+  @moduledoc "Graph node that evaluates LLM worker output."
+
   @behaviour AOS.AgentOS.Core.Node
   alias AOS.AgentOS.Roles.LLM
   require Logger
@@ -17,6 +19,7 @@ defmodule AOS.AgentOS.Core.Nodes.LLMEvaluator do
     Return your response in JSON format (or clearly specify at the end):
     {
       "status": "PASS" or "FAIL",
+      "score": 0.0 to 1.0,
       "feedback": "Your detailed feedback if FAIL, otherwise empty"
     }
     """
@@ -26,6 +29,7 @@ defmodule AOS.AgentOS.Core.Nodes.LLMEvaluator do
     case LLM.call_with_meta(prompt, use_tools: false) do
       {:ok, %{text: response} = meta} ->
         is_pass = String.contains?(String.upcase(response), "PASS")
+        score = extract_score(response, is_pass)
         usage = Map.get(meta, "usage", %{})
         additional_cost = Map.get(meta, "cost_usd", 0.0)
 
@@ -35,6 +39,8 @@ defmodule AOS.AgentOS.Core.Nodes.LLMEvaluator do
 
             context
             |> Map.put(:last_outcome, :pass)
+            |> Map.put(:evaluation_score, score)
+            |> Map.put(:evaluation_feedback, "")
             |> accumulate_budget(additional_cost, usage)
           else
             feedback = extract_feedback(response)
@@ -43,6 +49,8 @@ defmodule AOS.AgentOS.Core.Nodes.LLMEvaluator do
             context
             |> Map.put(:last_outcome, :fail)
             |> Map.put(:feedback, feedback)
+            |> Map.put(:evaluation_score, score)
+            |> Map.put(:evaluation_feedback, feedback)
             |> accumulate_budget(additional_cost, usage)
           end
 
@@ -58,6 +66,26 @@ defmodule AOS.AgentOS.Core.Nodes.LLMEvaluator do
     case Regex.run(~r/feedback["\s:]+(.+)/i, response) do
       [_, feedback] -> String.trim(feedback, " \"}")
       _ -> "No specific feedback provided by evaluator."
+    end
+  end
+
+  defp extract_score(response, is_pass) do
+    case Regex.run(~r/"?score"?\s*:\s*(0(?:\.\d+)?|1(?:\.0+)?)/i, response) do
+      [_, score] ->
+        score
+        |> parse_float()
+        |> min(1.0)
+        |> max(0.0)
+
+      _ ->
+        if is_pass, do: 1.0, else: 0.0
+    end
+  end
+
+  defp parse_float(value) do
+    case Float.parse(value) do
+      {score, _rest} -> score
+      :error -> 0.0
     end
   end
 

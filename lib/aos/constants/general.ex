@@ -3,7 +3,7 @@ defmodule AOS.Constants.General do
   The Enums constants are where all enum values should be defined.
   """
 
-  def current_env(), do: Application.fetch_env!(:aos, :env)
+  def current_env, do: Application.fetch_env!(:aos, :env)
 
   def current_env(:string), do: current_env() |> to_string()
 

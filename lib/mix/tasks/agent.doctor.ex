@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Agent.Doctor do
+  @moduledoc "Prints Agent OS runtime diagnostics."
+
   @shortdoc "Run operational diagnostics"
 
   use Mix.Task

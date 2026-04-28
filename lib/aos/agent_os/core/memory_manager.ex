@@ -4,7 +4,9 @@ defmodule AOS.AgentOS.Core.MemoryManager do
   Ensures the DB doesn't grow indefinitely.
   """
   use GenServer
+  alias AOS.AgentOS.Config
   alias AOS.AgentOS.Core.{MemoryRetentionPolicy, MemoryStore, NodeRegistry}
+  alias AOS.AgentOS.Evolution.StrategyRegistry
   require Logger
 
   # Once a day
@@ -33,6 +35,9 @@ defmodule AOS.AgentOS.Core.MemoryManager do
     # 3. Cap successful records per domain (The new feature)
     cap_domain_successes()
 
+    # 4. Archive low-performing evolved strategies
+    prune_strategies()
+
     schedule_cleanup()
     {:noreply, state}
   end
@@ -56,7 +61,7 @@ defmodule AOS.AgentOS.Core.MemoryManager do
   end
 
   defp cap_domain_successes do
-    cap = AOS.AgentOS.Config.domain_success_cap()
+    cap = Config.domain_success_cap()
     domains = NodeRegistry.all_domains()
 
     Enum.each(domains, fn domain ->
@@ -81,5 +86,10 @@ defmodule AOS.AgentOS.Core.MemoryManager do
 
   defp schedule_cleanup do
     Process.send_after(self(), :cleanup, @cleanup_interval)
+  end
+
+  defp prune_strategies do
+    result = StrategyRegistry.prune()
+    Logger.info("[MemoryManager] Archived #{result.archived} low-performing strategies.")
   end
 end

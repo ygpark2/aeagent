@@ -1,7 +1,7 @@
 defmodule AOS.AgentOS.ExecutionsTest do
   use AOS.DataCase, async: true
 
-  alias AOS.AgentOS.Core.{Graph, Session}
+  alias AOS.AgentOS.Core.{Artifact, Engine, Execution, Graph, Session}
   alias AOS.AgentOS.Executions
 
   alias AOS.Test.Support.Nodes.{
@@ -48,7 +48,7 @@ defmodule AOS.AgentOS.ExecutionsTest do
       |> Repo.insert()
 
     assert {:ok, final_context} =
-             AOS.AgentOS.Core.Engine.run(graph, %{
+             Engine.run(graph, %{
                task: "artifact task",
                session_id: session.id
              })
@@ -120,8 +120,8 @@ defmodule AOS.AgentOS.ExecutionsTest do
       |> Repo.insert()
 
     {:ok, _first} =
-      %AOS.AgentOS.Core.Execution{}
-      |> AOS.AgentOS.Core.Execution.changeset(%{
+      %Execution{}
+      |> Execution.changeset(%{
         session_id: session.id,
         domain: "general",
         task: "first question",
@@ -134,8 +134,8 @@ defmodule AOS.AgentOS.ExecutionsTest do
       |> Repo.insert()
 
     {:ok, _second} =
-      %AOS.AgentOS.Core.Execution{}
-      |> AOS.AgentOS.Core.Execution.changeset(%{
+      %Execution{}
+      |> Execution.changeset(%{
         session_id: session.id,
         domain: "general",
         task: "second question",
@@ -168,8 +168,8 @@ defmodule AOS.AgentOS.ExecutionsTest do
 
     for index <- 1..7 do
       {:ok, _execution} =
-        %AOS.AgentOS.Core.Execution{}
-        |> AOS.AgentOS.Core.Execution.changeset(%{
+        %Execution{}
+        |> Execution.changeset(%{
           session_id: session.id,
           domain: "general",
           task: "question #{index}",
@@ -221,8 +221,8 @@ defmodule AOS.AgentOS.ExecutionsTest do
       |> Repo.insert()
 
     {:ok, _previous} =
-      %AOS.AgentOS.Core.Execution{}
-      |> AOS.AgentOS.Core.Execution.changeset(%{
+      %Execution{}
+      |> Execution.changeset(%{
         session_id: session.id,
         domain: "general",
         task: "earlier prompt",
@@ -259,7 +259,7 @@ defmodule AOS.AgentOS.ExecutionsTest do
 
     {:ok, _artifact} =
       Repo.insert(
-        AOS.AgentOS.Core.Artifact.changeset(%AOS.AgentOS.Core.Artifact{}, %{
+        Artifact.changeset(%Artifact{}, %{
           execution_id: execution.id,
           session_id: execution.session_id,
           kind: "checkpoint",
@@ -288,7 +288,7 @@ defmodule AOS.AgentOS.ExecutionsTest do
 
     {:ok, older_checkpoint} =
       Repo.insert(
-        AOS.AgentOS.Core.Artifact.changeset(%AOS.AgentOS.Core.Artifact{}, %{
+        Artifact.changeset(%Artifact{}, %{
           execution_id: execution.id,
           session_id: execution.session_id,
           kind: "checkpoint",
@@ -304,7 +304,7 @@ defmodule AOS.AgentOS.ExecutionsTest do
 
     {:ok, _newer_checkpoint} =
       Repo.insert(
-        AOS.AgentOS.Core.Artifact.changeset(%AOS.AgentOS.Core.Artifact{}, %{
+        Artifact.changeset(%Artifact{}, %{
           execution_id: execution.id,
           session_id: execution.session_id,
           kind: "checkpoint",
@@ -354,7 +354,7 @@ defmodule AOS.AgentOS.ExecutionsTest do
 
     {:ok, checkpoint} =
       Repo.insert(
-        AOS.AgentOS.Core.Artifact.changeset(%AOS.AgentOS.Core.Artifact{}, %{
+        Artifact.changeset(%Artifact{}, %{
           execution_id: execution.id,
           session_id: execution.session_id,
           kind: "checkpoint",
@@ -418,7 +418,7 @@ defmodule AOS.AgentOS.ExecutionsTest do
 
     {:ok, _checkpoint} =
       Repo.insert(
-        AOS.AgentOS.Core.Artifact.changeset(%AOS.AgentOS.Core.Artifact{}, %{
+        Artifact.changeset(%Artifact{}, %{
           execution_id: source_execution.id,
           session_id: session.id,
           kind: "checkpoint",
@@ -456,8 +456,8 @@ defmodule AOS.AgentOS.ExecutionsTest do
   end
 
   test "completion dispatches slack response through configured dispatcher" do
-    previous = Application.get_env(:aos, :slack_response_dispatcher)
-    previous_pid = Application.get_env(:aos, :slack_test_pid)
+    previous = :application.get_env(:aos, :slack_response_dispatcher, nil)
+    previous_pid = :application.get_env(:aos, :slack_test_pid, nil)
 
     Application.put_env(
       :aos,

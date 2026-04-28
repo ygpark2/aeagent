@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Agent.Metrics do
+  @moduledoc "Prints Agent OS metrics."
+
   @shortdoc "Show operational execution metrics"
 
   use Mix.Task

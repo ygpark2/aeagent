@@ -126,9 +126,9 @@ defmodule AOS.MixProject do
       homepage_url: homepage_url(Mix.env()),
       logo: "priv/static/images/genui-logo.png",
       main: "readme",
-      name: "Elixir / Pjhoenix Starter API",
+      name: "Autonomous Evolutionary Agent",
       output: "priv/static/docs",
-      source_url: "https://github.com/generalui/elixir-phoenix-starter"
+      source_url: "https://github.com/generalui/aeagent"
     ]
   end
 

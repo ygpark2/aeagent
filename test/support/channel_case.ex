@@ -16,12 +16,14 @@ defmodule AOSWeb.ChannelCase do
   """
 
   use ExUnit.CaseTemplate
+  alias AOS.{LegacyRepo, Repo}
+  alias Ecto.Adapters.SQL.Sandbox
 
   using do
     quote do
       # Import conveniences for testing with channels
       import Phoenix.ChannelTest
-      import AOSWeb.ChannelCase
+      import unquote(__MODULE__)
 
       # The default endpoint for testing
       @endpoint AOSWeb.Endpoint
@@ -29,17 +31,17 @@ defmodule AOSWeb.ChannelCase do
   end
 
   setup tags do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(AOS.Repo)
+    :ok = Sandbox.checkout(Repo)
 
     unless tags[:async] do
-      Ecto.Adapters.SQL.Sandbox.mode(AOS.Repo, {:shared, self()})
+      Sandbox.mode(Repo, {:shared, self()})
     end
 
     if tags[:legacy] do
-      :ok = Ecto.Adapters.SQL.Sandbox.checkout(AOS.LegacyRepo)
+      :ok = Sandbox.checkout(LegacyRepo)
 
       unless tags[:async] do
-        Ecto.Adapters.SQL.Sandbox.mode(AOS.LegacyRepo, {:shared, self()})
+        Sandbox.mode(LegacyRepo, {:shared, self()})
       end
     end
 

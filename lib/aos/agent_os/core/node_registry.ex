@@ -2,8 +2,8 @@ defmodule AOS.AgentOS.Core.NodeRegistry do
   @moduledoc """
   A central registry of available nodes, now including the Delegator for MCT.
   """
-  alias AOS.AgentOS.Roles.{IntentRouter, SkillSelector, Executor, Reporter}
-  alias AOS.AgentOS.Core.Nodes.{LLMWorker, LLMEvaluator, Delegator, PanelDebate}
+  alias AOS.AgentOS.Core.Nodes.{Delegator, LLMEvaluator, LLMWorker, PanelDebate}
+  alias AOS.AgentOS.Roles.{Executor, IntentRouter, Reporter, SkillSelector}
 
   @nodes %{
     "intent_router" => %{mod: IntentRouter, domain: :all},
@@ -19,11 +19,19 @@ defmodule AOS.AgentOS.Core.NodeRegistry do
 
   def get_node(id), do: get_in(@nodes, [id, :mod])
 
+  def component_id_for_module(module) do
+    @nodes
+    |> Enum.find(fn {_id, info} -> info.mod == module end)
+    |> case do
+      {id, _info} -> id
+      nil -> nil
+    end
+  end
+
   def list_nodes_for_domain(domain) do
     @nodes
     |> Enum.filter(fn {_id, info} -> info.domain == :all or info.domain == domain end)
-    |> Enum.map(fn {id, _info} -> id end)
-    |> Enum.join(", ")
+    |> Enum.map_join(", ", fn {id, _info} -> id end)
   end
 
   def all_domains do

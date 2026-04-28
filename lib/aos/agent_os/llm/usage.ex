@@ -6,6 +6,8 @@ defmodule AOS.AgentOS.LLM.Usage do
   @default_input_cost_per_1k 0.003
   @default_output_cost_per_1k 0.006
 
+  alias AOS.AgentOS.Config
+
   def estimate_usage(prompt, history, result_text) do
     history_chars =
       Enum.reduce(history, 0, fn
@@ -83,10 +85,10 @@ defmodule AOS.AgentOS.LLM.Usage do
 
   defp pricing_for_model(model) do
     configured =
-      AOS.AgentOS.Config.llm_pricing()
+      Config.llm_pricing()
       |> Map.new(fn {key, value} -> {to_string(key), value} end)
 
-    model_key = to_string(model || AOS.AgentOS.Config.agent_model() || "default")
+    model_key = to_string(model || Config.agent_model() || "default")
     matched = Enum.find(configured, fn {key, _value} -> String.contains?(model_key, key) end)
 
     case matched do

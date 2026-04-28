@@ -4,7 +4,7 @@ defmodule AOS.AgentOS.Policies.BudgetPolicyTest do
   alias AOS.AgentOS.Policies.BudgetPolicy
 
   test "blocks when accumulated cost exceeds configured budget" do
-    previous = Application.get_env(:aos, :max_agent_cost_usd)
+    previous = :application.get_env(:aos, :max_agent_cost_usd, nil)
     Application.put_env(:aos, :max_agent_cost_usd, 0.25)
 
     on_exit(fn ->
@@ -16,7 +16,7 @@ defmodule AOS.AgentOS.Policies.BudgetPolicyTest do
   end
 
   test "blocks repeated loops over configured max" do
-    previous = Application.get_env(:aos, :max_agent_loops)
+    previous = :application.get_env(:aos, :max_agent_loops, nil)
     Application.put_env(:aos, :max_agent_loops, 2)
 
     on_exit(fn ->

@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Agent.Run do
+  @moduledoc "Queues or runs an Agent OS task from the CLI."
+
   @shortdoc "Queue an agent execution"
 
   use Mix.Task

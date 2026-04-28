@@ -96,7 +96,7 @@ defmodule AOS.AgentOS.ToolsTest do
   end
 
   test "uses configurable permission to tool mapping from application env" do
-    original = Application.get_env(:aos, :skill_permission_tools)
+    original = :application.get_env(:aos, :skill_permission_tools, nil)
 
     on_exit(fn ->
       if original do
