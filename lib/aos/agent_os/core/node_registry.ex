@@ -6,15 +6,21 @@ defmodule AOS.AgentOS.Core.NodeRegistry do
   alias AOS.AgentOS.Roles.{Executor, IntentRouter, Reporter, SkillSelector}
 
   @nodes %{
-    "intent_router" => %{mod: IntentRouter, domain: :all},
-    "skill_selector" => %{mod: SkillSelector, domain: :all},
-    "executor" => %{mod: Executor, domain: :all},
-    "worker" => %{mod: LLMWorker, domain: :general},
-    "evaluator" => %{mod: LLMEvaluator, domain: :general},
-    "reporter" => %{mod: Reporter, domain: :all},
-    "panel_debate" => %{mod: PanelDebate, domain: :all},
-    # Can delegate to any specialized sub-graph
-    "delegator" => %{mod: Delegator, domain: :all}
+    # L1: Thinking & Collaborative Reasoning
+    "thinker" => %{mod: LLMWorker, domain: :general, layer: :brain},
+    "collaborator" => %{mod: PanelDebate, domain: :all, layer: :brain},
+
+    # L2: Action & Tool Use
+    "executor" => %{mod: Executor, domain: :all, layer: :hands},
+    "skill_selector" => %{mod: SkillSelector, domain: :all, layer: :hands},
+
+    # L3: Reflection & Validation
+    "critic" => %{mod: LLMEvaluator, domain: :general, layer: :eyes},
+
+    # L4: Control & Reporting
+    "router" => %{mod: IntentRouter, domain: :all, layer: :nerve},
+    "delegator" => %{mod: Delegator, domain: :all, layer: :nerve},
+    "reporter" => %{mod: Reporter, domain: :all, layer: :nerve}
   }
 
   def get_node(id), do: get_in(@nodes, [id, :mod])
@@ -31,7 +37,7 @@ defmodule AOS.AgentOS.Core.NodeRegistry do
   def list_nodes_for_domain(domain) do
     @nodes
     |> Enum.filter(fn {_id, info} -> info.domain == :all or info.domain == domain end)
-    |> Enum.map_join(", ", fn {id, _info} -> id end)
+    |> Enum.map_join(", ", fn {id, info} -> "#{id}(layer:#{info.layer})" end)
   end
 
   def all_domains do

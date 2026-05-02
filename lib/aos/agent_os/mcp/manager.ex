@@ -30,6 +30,20 @@ defmodule AOS.AgentOS.MCP.Manager do
     GenServer.call(__MODULE__, {:call_tool, server_id, tool_name, arguments}, 60_000)
   end
 
+  @doc """
+  Dynamically registers a new MCP server.
+  """
+  def register_server(id, opts) do
+    GenServer.call(__MODULE__, {:register_server, id, opts})
+  end
+
+  @doc """
+  Dynamically unregisters and stops an MCP server.
+  """
+  def unregister_server(id) do
+    GenServer.call(__MODULE__, {:unregister_server, id})
+  end
+
   @impl true
   def init(_) do
     servers = Application.get_env(:aos, :mcp_servers, %{})
@@ -43,6 +57,38 @@ defmodule AOS.AgentOS.MCP.Manager do
       end)
 
     {:ok, %{clients: clients}}
+  end
+
+  @impl true
+  def handle_call({:register_server, id, opts}, _from, state) do
+    case Map.get(state.clients, id) do
+      nil ->
+        case Client.start_link(Keyword.put(opts, :name, nil)) do
+          {:ok, pid} ->
+            Logger.info("[MCP.Manager] Registered new server: #{id}")
+            {:reply, :ok, %{state | clients: Map.put(state.clients, id, pid)}}
+
+          {:error, reason} ->
+            {:reply, {:error, reason}, state}
+        end
+
+      _pid ->
+        {:reply, {:error, :already_registered}, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:unregister_server, id}, _from, state) do
+    case Map.get(state.clients, id) do
+      nil ->
+        {:reply, {:error, :not_found}, state}
+
+      pid ->
+        # Properly stop the client process
+        GenServer.stop(pid)
+        Logger.info("[MCP.Manager] Unregistered server: #{id}")
+        {:reply, :ok, %{state | clients: Map.delete(state.clients, id)}}
+    end
   end
 
   @impl true

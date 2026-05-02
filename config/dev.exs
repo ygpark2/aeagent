@@ -52,21 +52,19 @@ config :aos, AOSWeb.Endpoint,
   # If the "RELEASE" environment variable is NOT set, debug errors.
   debug_errors: !is_release,
   http: [port: application_port],
-  watchers: [
-    tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]},
-    esbuild: {Esbuild, :install_and_run, [:default, ~w(--watch)]}
-  ],
-  # https: [
-  #   port: ssl_application_port,
-  #   cipher_suite: :strong,
-  #   keyfile: "priv/cert/selfsigned_key.pem",
-  #   certfile: "priv/cert/selfsigned.pem"
-  # ],
+  watchers:
+    (if System.get_env("DISABLE_WATCHERS") == "true" do
+       []
+     else
+       [
+         tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]},
+         esbuild: {Esbuild, :install_and_run, [:default, ~w(--watch)]}
+       ]
+     end),
   live_view: [signing_salt: secret_key_base],
   secret_key_base: secret_key_base,
   server: true,
-  url: [host: website_host, port: application_port],
-  watchers: []
+  url: [host: website_host, port: application_port]
 
 # ## SSL Support
 #

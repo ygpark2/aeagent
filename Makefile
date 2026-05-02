@@ -41,8 +41,14 @@ help:
 	@echo "  local-server - Start the Phoenix server locally"
 	@echo "  local-stop   - Stop the local Phoenix server and IEx sessions"
 	@echo "  local-iex    - Start the Phoenix server with IEx locally"
+	@echo "  local-chat   - Start the interactive agent chat locally (watchers disabled)"
+	@echo "  local-run    - Run an agent task (usage: make local-run task=\"...\")"
+	@echo "  local-status - Check status of an execution (usage: make local-status id=...)"
+	@echo "  local-history - Show recent executions (usage: make local-history [limit=10])"
+	@echo "  local-logs   - Show logs for an execution (usage: make local-logs id=...)"
+	@echo "  local-resume - Resume a failed/interrupted execution (usage: make local-resume id=...)"
 
-	.PHONY: help start stop restart reset setup build clean local-setup local-server local-stop local-iex
+.PHONY: help start stop restart reset setup build clean local-setup local-server local-stop local-iex local-chat local-run local-status local-history local-logs local-resume
 
 STACK_NAME := aos-stack
 COMPOSE_FILE := deploy/stack.dev.yml
@@ -88,13 +94,37 @@ local-server:
 	mix phx.server
 
 local-stop:
-	@echo "$(RED)Stopping local server and IEx sessions...$(NC)"
+	@echo "$(RED)Stopping local server, chat, and IEx sessions...$(NC)"
 	@pkill -f "mix phx.server" || true
+	@pkill -f "mix agent.chat" || true
 	@pkill -f "iex" || true
 
 local-iex:
 	@echo "$(BLUE)Starting local server with IEx...$(NC)"
 	iex -S mix phx.server
+
+local-chat:
+	@echo "$(BLUE)Starting interactive agent chat...$(NC)"
+	DISABLE_WATCHERS=true mix agent.chat $(args)
+
+local-run:
+	@echo "$(BLUE)Running agent task: $(task)$(NC)"
+	DISABLE_WATCHERS=true mix agent.run $(args) "$(task)"
+
+local-status:
+	@if [ -z "$(id)" ]; then echo "$(RED)Error: id is required (usage: make local-status id=...)$(NC)"; exit 1; fi
+	DISABLE_WATCHERS=true mix agent.status $(id)
+
+local-history:
+	DISABLE_WATCHERS=true mix agent.history $(if $(limit),--limit $(limit))
+
+local-logs:
+	@if [ -z "$(id)" ]; then echo "$(RED)Error: id is required (usage: make local-logs id=...)$(NC)"; exit 1; fi
+	DISABLE_WATCHERS=true mix agent.logs $(id)
+
+local-resume:
+	@if [ -z "$(id)" ]; then echo "$(RED)Error: id is required (usage: make local-resume id=...)$(NC)"; exit 1; fi
+	DISABLE_WATCHERS=true mix agent.resume $(id)
 
 restart: stop start
 

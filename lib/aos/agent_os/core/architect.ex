@@ -61,12 +61,23 @@ defmodule AOS.AgentOS.Core.Architect do
 
     prompt = """
     Create an Agent Graph JSON for mission: "#{task}" (Domain: #{domain}).
-    Available Nodes: #{available_nodes}
+    Available Nodes (Layered Architecture):
+    #{available_nodes}
+
+    [Architecture Guidelines]
+    - L1(brain): Use 'thinker' for simple tasks, 'collaborator' for complex reasoning or debates.
+    - L2(hands): Use 'executor' with 'skill_selector' for tool use and actions.
+    - L3(eyes): Use 'critic' for quality validation and logic checking.
+    - L4(nerve): Use 'router' for branching and 'reporter' for final output.
+
+    [Strategy]
+    Combine layers efficiently. For critical tasks, always include 'critic'. 
+    If deep analysis is needed, prefer 'collaborator' over 'thinker'.
 
     [Reference Patterns]
     #{memories}
 
-    Output ONLY raw JSON. No explanation.
+    Output ONLY raw JSON.
     {
       "nodes": {"n1": "component_id", "n2": "component_id"},
       "initial_node": "n1",
@@ -144,19 +155,19 @@ defmodule AOS.AgentOS.Core.Architect do
 
   defp emergency_graph do
     Graph.new(:emergency_graph)
-    |> Graph.add_node(:worker, LLMWorker)
+    |> Graph.add_node(:thinker, LLMWorker)
     |> Graph.add_node(:reporter, Reporter)
-    |> Graph.set_initial(:worker)
-    |> Graph.add_transition(:worker, :success, :reporter)
+    |> Graph.set_initial(:thinker)
+    |> Graph.add_transition(:thinker, :success, :reporter)
     |> Graph.add_transition(:reporter, :success, nil)
   end
 
   defp panel_debate_graph do
     Graph.new(:panel_debate_graph)
-    |> Graph.add_node(:panel_debate, PanelDebate)
+    |> Graph.add_node(:collaborator, PanelDebate)
     |> Graph.add_node(:reporter, Reporter)
-    |> Graph.set_initial(:panel_debate)
-    |> Graph.add_transition(:panel_debate, :success, :reporter)
+    |> Graph.set_initial(:collaborator)
+    |> Graph.add_transition(:collaborator, :success, :reporter)
     |> Graph.add_transition(:reporter, :success, nil)
   end
 end

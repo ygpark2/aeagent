@@ -48,7 +48,7 @@ defmodule AOS.AgentOS.Evolution.StrategyMutator do
     do: prepend_node(blueprint, "skill_selector", "skill_selector")
 
   defp apply_rule(blueprint, :prepend_intent_router),
-    do: prepend_node(blueprint, "intent_router", "intent_router")
+    do: prepend_node(blueprint, "router", "router")
 
   defp apply_rule(blueprint, :remove_delegator), do: remove_delegator(blueprint)
 
@@ -61,17 +61,17 @@ defmodule AOS.AgentOS.Evolution.StrategyMutator do
     nodes =
       blueprint
       |> Map.get("nodes", %{})
-      |> Map.put_new("evaluator", "evaluator")
+      |> Map.put_new("critic", "critic")
 
     transitions =
       blueprint
       |> Map.get("transitions", [])
       |> Enum.map(fn
-        %{"to" => "reporter"} = transition -> %{transition | "to" => "evaluator"}
+        %{"to" => "reporter"} = transition -> %{transition | "to" => "critic"}
         transition -> transition
       end)
-      |> append_unique(%{"from" => "evaluator", "on" => "pass", "to" => "reporter"})
-      |> append_unique(%{"from" => "evaluator", "on" => "fail", "to" => "reporter"})
+      |> append_unique(%{"from" => "critic", "on" => "pass", "to" => "reporter"})
+      |> append_unique(%{"from" => "critic", "on" => "fail", "to" => "reporter"})
 
     blueprint
     |> Map.put("nodes", nodes)
@@ -81,12 +81,12 @@ defmodule AOS.AgentOS.Evolution.StrategyMutator do
   defp simplify_to_worker_reporter(blueprint) do
     nodes = Map.get(blueprint, "nodes", %{})
 
-    if Map.has_key?(nodes, "worker") and Map.has_key?(nodes, "reporter") do
+    if Map.has_key?(nodes, "thinker") and Map.has_key?(nodes, "reporter") do
       Map.merge(blueprint, %{
-        "initial_node" => "worker",
-        "nodes" => %{"worker" => "worker", "reporter" => "reporter"},
+        "initial_node" => "thinker",
+        "nodes" => %{"thinker" => "thinker", "reporter" => "reporter"},
         "transitions" => [
-          %{"from" => "worker", "on" => "success", "to" => "reporter"},
+          %{"from" => "thinker", "on" => "success", "to" => "reporter"},
           %{"from" => "reporter", "on" => "success", "to" => nil}
         ]
       })

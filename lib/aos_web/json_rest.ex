@@ -1,31 +1,41 @@
 defmodule AOSWeb.JsonRest do
   @moduledoc """
-  The JsonRest module provides wrapper functions function HTTPoison.request
+  The JsonRest module provides wrapper functions using Req for JSON HTTP requests.
   """
 
   def get_json(url, options) do
-    request(:get, url, "", options)
+    request(:get, url, nil, options)
   end
 
   def post_json(url, options, body) do
-    request(:post, url, Jason.encode!(body), options)
+    request(:post, url, body, options)
   end
 
   ### PRIVATE ###
 
   defp request(method, url, body, options) do
-    HTTPoison.start()
+    headers = Keyword.get(options, :headers, [])
+    
+    req_opts = 
+      options
+      |> Keyword.delete(:headers)
+      |> Keyword.put(:method, method)
+      |> Keyword.put(:url, url)
+      |> Keyword.put(:headers, headers)
+    
+    req_opts = if body, do: Keyword.put(req_opts, :json, body), else: req_opts
 
-    case HTTPoison.request(method, url, body, Keyword.get(options, :headers, []), options) do
+    case Req.request(req_opts) do
       {:ok, response} ->
-        if trunc(response.status_code / 100) == 2 do
-          {:ok, response}
+        if trunc(response.status / 100) == 2 do
+          # Map Req.Response back to a structure expected by callers if necessary
+          {:ok, %{status_code: response.status, body: response.body}}
         else
-          {:error, response}
+          {:error, %{status_code: response.status, body: response.body}}
         end
 
-      {:error, _} = error ->
-        error
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 end

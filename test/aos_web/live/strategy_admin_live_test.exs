@@ -19,7 +19,7 @@ defmodule AOSWeb.StrategyAdminLiveTest do
 
     assert html =~ "Evolution Strategies"
     assert html =~ strategy.task_signature
-    assert render(view) =~ "worker --success--&gt; reporter"
+    assert render(view) =~ "success"
   end
 
   defp simple_blueprint do

@@ -5,6 +5,7 @@
 ExUnit.configure(exclude: [external: true], max_cases: 1)
 
 ExUnit.start()
+Mox.defmock(AOS.HTTPClientMock, for: AOS.HTTPClient.Behaviour)
 Faker.start()
 Code.compile_file("test/support/test_utils.exs")
 

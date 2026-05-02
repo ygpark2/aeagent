@@ -10,8 +10,8 @@ defmodule AOS.AgentOS.Core.ArchitectTest do
 
       assert %Graph{} = graph
       assert graph.id == :panel_debate_graph
-      assert graph.initial_node == :panel_debate
-      assert graph.nodes[:panel_debate] == AOS.AgentOS.Core.Nodes.PanelDebate
+      assert graph.initial_node == :collaborator
+      assert graph.nodes[:collaborator] == AOS.AgentOS.Core.Nodes.PanelDebate
       assert graph.nodes[:reporter] == AOS.AgentOS.Roles.Reporter
     end
 

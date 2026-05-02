@@ -8,22 +8,28 @@ defmodule AOS.AgentOS.Roles.LLM do
   alias AOS.AgentOS.Tools
   alias AOS.AgentOS.ToolUse.{ApprovalService, AuditService}
 
+  require OpenTelemetry.Tracer, as: Tracer
+
   def call(prompt, opts \\ []) do
-    case call_with_meta(prompt, opts) do
-      {:ok, %{text: text}} -> {:ok, text}
-      {:error, reason} -> {:error, reason}
+    Tracer.with_span "LLM.call" do
+      case call_with_meta(prompt, opts) do
+        {:ok, %{text: text}} -> {:ok, text}
+        {:error, reason} -> {:error, reason}
+      end
     end
   end
 
   def call_with_meta(prompt, opts \\ []) do
-    use_tools? = Keyword.get(opts, :use_tools, true)
-    notify_pid = Keyword.get(opts, :notify)
-    history = Keyword.get(opts, :history, [])
+    Tracer.with_span "LLM.call_with_meta" do
+      use_tools? = Keyword.get(opts, :use_tools, true)
+      notify_pid = Keyword.get(opts, :notify)
+      history = Keyword.get(opts, :history, [])
 
-    if use_tools? do
-      call_with_tools(prompt, history, opts, notify_pid)
-    else
-      execute_call(prompt, history, opts)
+      if use_tools? do
+        call_with_tools(prompt, history, opts, notify_pid)
+      else
+        execute_call(prompt, history, opts)
+      end
     end
   end
 
@@ -73,7 +79,8 @@ defmodule AOS.AgentOS.Roles.LLM do
   end
 
   defp execute_single_tool(%{"name" => full_name, "arguments" => args}, notify_pid, opts) do
-    parts = String.split(full_name, "__", parts: 2)
+    Tracer.with_span "LLM.execute_tool", %{attributes: %{"tool.name" => full_name}} do
+      parts = String.split(full_name, "__", parts: 2)
 
     {server_id, tool_name} =
       case parts do
@@ -133,6 +140,7 @@ defmodule AOS.AgentOS.Roles.LLM do
       do: send(notify_pid, {:workflow_step_completed, display_name, %{result: result}})
 
     result
+    end
   end
 
   defp execute_call(prompt, history, opts) do

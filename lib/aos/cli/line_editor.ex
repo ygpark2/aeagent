@@ -1,44 +1,45 @@
 defmodule AOS.CLI.LineEditor do
   @moduledoc false
+  require Bitwise
 
   @esc <<27>>
   @backspace 127
+  @ctrl_h 8
   @ctrl_c 3
   @ctrl_d 4
+
+  def apply_key(state, :up), do: move_history(state, :up)
+  def apply_key(state, :down), do: move_history(state, :down)
+  def apply_key(state, :left), do: move_cursor(state, :left)
+  def apply_key(state, :right), do: move_cursor(state, :right)
+  def apply_key(state, :backspace), do: handle_backspace(state)
+  def apply_key(state, :delete), do: handle_delete(state)
 
   def read_line(prompt, history \\ []) do
     initial_state = %{
       prompt: prompt,
       buffer: "",
-      cursor: 0,
+      cursor: 0, # Grapheme-based cursor position
       history: Enum.uniq(history),
       history_index: nil,
       draft: ""
     }
 
     with {:ok, stty_state} <- stty("-g"),
-         :ok <- set_raw_mode(),
+         :ok <- set_tty_mode(),
          :ok <- render(initial_state) do
       result = loop(initial_state)
-      restore_mode(stty_state)
-      result
+      restore_tty_mode(stty_state)
+      
+      case result do
+        {:ok, buffer} -> {:ok, String.normalize(buffer, :nfc)}
+        other -> other
+      end
     else
       _ ->
         fallback_read(prompt)
     end
   end
-
-  def apply_key(state, :up), do: history_up(state)
-  def apply_key(state, :down), do: history_down(state)
-  def apply_key(state, :left), do: %{state | cursor: max(state.cursor - 1, 0)}
-
-  def apply_key(state, :right),
-    do: %{state | cursor: min(state.cursor + 1, String.length(state.buffer))}
-
-  def apply_key(state, :backspace), do: backspace(state)
-  def apply_key(state, {:insert, text}), do: insert_text(state, text)
-
-  def apply_key(state, _key), do: state
 
   defp loop(state) do
     case IO.binread(:stdio, 1) do
@@ -54,28 +55,108 @@ defmodule AOS.CLI.LineEditor do
         IO.write("\n")
         :eof
 
-      <<@backspace>> ->
-        state
-        |> apply_key(:backspace)
-        |> rerender_and_continue()
+      <<char>> when char in [@ctrl_h, @backspace] ->
+        state |> handle_backspace() |> rerender_and_continue()
 
-      <<"\r">> ->
+      <<13>> -> # Enter
         IO.write("\n")
         {:ok, state.buffer}
 
-      <<"\n">> ->
+      <<10>> -> # Newline
         IO.write("\n")
         {:ok, state.buffer}
 
       @esc ->
-        state
-        |> handle_escape_sequence()
-        |> rerender_and_continue()
+        state |> handle_escape_sequence() |> rerender_and_continue()
 
-      char ->
-        state
-        |> apply_key({:insert, char})
-        |> rerender_and_continue()
+      <<char_code>> ->
+        text = read_full_utf8(char_code)
+        
+        if text == "" or char_code < 32 do
+          rerender_and_continue(state)
+        else
+          state |> insert_text(text) |> rerender_and_continue()
+        end
+    end
+  end
+
+  defp read_full_utf8(first_byte) do
+    cond do
+      first_byte < 128 -> <<first_byte>>
+      Bitwise.band(first_byte, 0xE0) == 0xC0 -> <<first_byte>> <> (IO.binread(:stdio, 1) || "")
+      Bitwise.band(first_byte, 0xF0) == 0xE0 -> <<first_byte>> <> (IO.binread(:stdio, 2) || "")
+      Bitwise.band(first_byte, 0xF8) == 0xF0 -> <<first_byte>> <> (IO.binread(:stdio, 3) || "")
+      true -> ""
+    end
+  end
+
+  defp handle_backspace(%{cursor: 0} = state), do: state
+  defp handle_backspace(state) do
+    graphemes = String.graphemes(state.buffer)
+    cursor = min(max(state.cursor, 0), length(graphemes))
+    {left, right} = Enum.split(graphemes, cursor)
+    new_buffer = String.normalize(Enum.join(Enum.drop(left, -1) ++ right), :nfc)
+    %{state | buffer: new_buffer, cursor: cursor - 1}
+  end
+
+  defp insert_text(state, text) do
+    graphemes = String.graphemes(state.buffer)
+    cursor = min(max(state.cursor, 0), length(graphemes))
+    {left, right} = Enum.split(graphemes, cursor)
+    new_buffer = String.normalize(Enum.join(left ++ [text] ++ right), :nfc)
+    new_left_len = length(String.graphemes(String.normalize(Enum.join(left ++ [text]), :nfc)))
+    %{state | buffer: new_buffer, cursor: new_left_len}
+  end
+
+  defp handle_escape_sequence(state) do
+    case IO.binread(:stdio, 2) do
+      <<"[A">> -> move_history(state, :up)
+      <<"[B">> -> move_history(state, :down)
+      <<"[C">> -> move_cursor(state, :right)
+      <<"[D">> -> move_cursor(state, :left)
+      <<"[3">> -> 
+        _ = IO.binread(:stdio, 1) # consume ~
+        handle_delete(state)
+      _ -> state
+    end
+  end
+
+  defp move_cursor(state, :left), do: %{state | cursor: max(state.cursor - 1, 0)}
+  defp move_cursor(state, :right) do
+    len = length(String.graphemes(state.buffer))
+    %{state | cursor: min(state.cursor + 1, len)}
+  end
+
+  defp handle_delete(state) do
+    graphemes = String.graphemes(state.buffer)
+    cursor = min(max(state.cursor, 0), length(graphemes))
+    {left, right} = Enum.split(graphemes, cursor)
+    new_buffer = String.normalize(Enum.join(left ++ Enum.drop(right, 1)), :nfc)
+    %{state | buffer: new_buffer}
+  end
+
+  defp move_history(state, direction) do
+    case direction do
+      :up ->
+        idx = if state.history_index == nil, do: length(state.history) - 1, else: state.history_index - 1
+        if idx >= 0 do
+          buf = Enum.at(state.history, idx)
+          %{state | history_index: idx, draft: if(state.history_index == nil, do: state.buffer, else: state.draft), buffer: buf, cursor: length(String.graphemes(buf))}
+        else
+          state
+        end
+      :down ->
+        if state.history_index == nil do
+          state
+        else
+          idx = state.history_index + 1
+          if idx < length(state.history) do
+            buf = Enum.at(state.history, idx)
+            %{state | history_index: idx, buffer: buf, cursor: length(String.graphemes(buf))}
+          else
+            %{state | history_index: nil, buffer: state.draft, cursor: length(String.graphemes(state.draft))}
+          end
+        end
     end
   end
 
@@ -84,98 +165,53 @@ defmodule AOS.CLI.LineEditor do
     loop(state)
   end
 
-  defp handle_escape_sequence(state) do
-    case IO.binread(:stdio, 2) do
-      <<"[A">> -> apply_key(state, :up)
-      <<"[B">> -> apply_key(state, :down)
-      <<"[C">> -> apply_key(state, :right)
-      <<"[D">> -> apply_key(state, :left)
-      _ -> state
-    end
-  end
-
-  defp insert_text(state, text) do
-    {left, right} = split_buffer(state.buffer, state.cursor)
-    buffer = left <> text <> right
-    %{state | buffer: buffer, cursor: state.cursor + String.length(text)}
-  end
-
-  defp backspace(%{cursor: 0} = state), do: state
-
-  defp backspace(state) do
-    {left, right} = split_buffer(state.buffer, state.cursor)
-    left = String.slice(left, 0, String.length(left) - 1)
-    %{state | buffer: left <> right, cursor: state.cursor - 1}
-  end
-
-  defp history_up(%{history: []} = state), do: state
-
-  defp history_up(%{history_index: nil} = state) do
-    index = length(state.history) - 1
-    buffer = Enum.at(state.history, index, "")
-
-    %{
-      state
-      | history_index: index,
-        draft: state.buffer,
-        buffer: buffer,
-        cursor: String.length(buffer)
-    }
-  end
-
-  defp history_up(%{history_index: 0} = state), do: state
-
-  defp history_up(state) do
-    index = state.history_index - 1
-    buffer = Enum.at(state.history, index, "")
-    %{state | history_index: index, buffer: buffer, cursor: String.length(buffer)}
-  end
-
-  defp history_down(%{history_index: nil} = state), do: state
-
-  defp history_down(state) when state.history_index >= length(state.history) - 1 do
-    %{state | history_index: nil, buffer: state.draft, cursor: String.length(state.draft)}
-  end
-
-  defp history_down(state) do
-    index = state.history_index + 1
-    buffer = Enum.at(state.history, index, "")
-    %{state | history_index: index, buffer: buffer, cursor: String.length(buffer)}
-  end
-
-  defp split_buffer(buffer, cursor) do
-    {String.slice(buffer, 0, cursor),
-     String.slice(buffer, cursor, String.length(buffer) - cursor)}
-  end
-
   defp render(state) do
-    left_moves = String.length(state.buffer) - state.cursor
-
-    IO.write("\r\e[2K")
+    # Clear line using carriage return and clear-to-end-of-line
+    IO.write("\r\e[K")
     IO.write(state.prompt <> state.buffer)
 
-    if left_moves > 0 do
-      IO.write("\e[#{left_moves}D")
-    end
-
+    # Move to absolute column for maximum reliability
+    graphemes = String.graphemes(state.buffer)
+    left_part = Enum.take(graphemes, state.cursor)
+    
+    # +1 because terminal columns are 1-indexed
+    target_col = display_width(state.prompt) + display_width(Enum.join(left_part)) + 1
+    
+    IO.write("\e[#{target_col}G")
     :ok
   end
 
-  defp set_raw_mode do
-    case stty("raw", "-echo") do
+  defp display_width(string) do
+    string
+    |> String.graphemes()
+    |> Enum.reduce(0, fn g, acc -> acc + grapheme_width(g) end)
+  end
+
+  defp grapheme_width(g) do
+    case String.to_charlist(g) do
+      [cp | _] ->
+        if (cp >= 0x1100 && cp <= 0x11FF) || # Hangul Jamo
+           (cp >= 0x2E80 && cp <= 0x9FFF) || # CJK Ideographs
+           (cp >= 0xAC00 && cp <= 0xD7AF) || # Hangul Syllables
+           (cp >= 0xF900 && cp <= 0xFAFF) || # CJK Compatibility
+           (cp >= 0xFE30 && cp <= 0xFE4F) || # CJK Compatibility Forms
+           (cp >= 0xFF00 && cp <= 0xFF60)    # Fullwidth
+        do 2 else 1 end
+      [] -> 0
+    end
+  end
+
+  defp set_tty_mode do
+    case stty("raw", "-echo", "iutf8") do
       {:ok, _} -> :ok
-      _ -> {:error, :stty}
+      _ -> stty("raw", "-echo")
     end
   end
 
-  defp restore_mode(stty_state) do
-    _ = stty(stty_state)
-    :ok
-  end
+  defp restore_tty_mode(stty_state), do: stty(stty_state)
 
-  defp stty(arg1, arg2 \\ nil) do
-    args = Enum.reject([arg1, arg2], &is_nil/1)
-
+  defp stty(a, b \\ nil, c \\ nil) do
+    args = Enum.reject([a, b, c], &is_nil/1)
     case System.cmd("stty", args, stderr_to_stdout: true) do
       {output, 0} -> {:ok, String.trim(output)}
       _ -> {:error, :stty}

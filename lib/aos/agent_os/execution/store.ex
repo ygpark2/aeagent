@@ -6,7 +6,7 @@ defmodule AOS.AgentOS.Execution.Store do
   import Ecto.Query
 
   alias AOS.AgentOS.Autonomy
-  alias AOS.AgentOS.Core.{Artifact, DelegationTrace, Execution, Session}
+  alias AOS.AgentOS.Core.{Artifact, DelegationTrace, Execution, MemoryStore, Session}
   alias AOS.AgentOS.Execution.StateMachine
   alias AOS.Repo
 
@@ -58,9 +58,20 @@ defmodule AOS.AgentOS.Execution.Store do
     execution = get_execution!(id)
 
     with :ok <- validate_status_transition(execution, attrs) do
-      execution
-      |> Execution.changeset(attrs)
-      |> Repo.update()
+      result =
+        execution
+        |> Execution.changeset(attrs)
+        |> Repo.update()
+
+      case result do
+        {:ok, %Execution{success: true, embedding: nil} = updated} ->
+          # Generate embedding in background to not block the main flow
+          Task.start(fn -> MemoryStore.update_embedding(updated) end)
+          {:ok, updated}
+
+        other ->
+          other
+      end
     end
   end
 

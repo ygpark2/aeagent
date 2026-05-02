@@ -10,7 +10,6 @@ defmodule AOS.Application do
   alias AOS.AgentOS.Runtime.{AIPool, AIRuntime, Scheduler, SessionSupervisor}
   alias AOS.AgentOS.TaskSupervisor
   alias AOS.Repo
-  alias AOS.Telemetry.MetricsSetup
 
   def start(_type, _args) do
     import Supervisor.Spec, warn: false
@@ -20,9 +19,8 @@ defmodule AOS.Application do
       {:ok, _} = EctoBootMigration.migrate(:aos)
     end
 
-    # Start the Prometheus exporter.
-    MetricsSetup.setup()
     ConfigValidator.validate!()
+    setup_opentelemetry()
 
     children = [
       # Start the Ecto repository
@@ -33,6 +31,8 @@ defmodule AOS.Application do
       {Phoenix.PubSub, name: AOS.PubSub},
       # Start the Endpoint (http/https)
       AOSWeb.Endpoint,
+      # Start PromEx
+      AOS.PromEx,
       # Start the Agent OS Session Supervisor
       SessionSupervisor,
       # Background tasks for API/CLI-triggered executions
@@ -54,6 +54,11 @@ defmodule AOS.Application do
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: AOS.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  defp setup_opentelemetry do
+    OpentelemetryPhoenix.setup(adapter: :cowboy2)
+    OpentelemetryEcto.setup([:aos, Repo])
   end
 
   # Tell Phoenix to update the endpoint configuration

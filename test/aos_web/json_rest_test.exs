@@ -1,79 +1,72 @@
 defmodule AOSWeb.JsonRestTest do
-  @moduledoc """
-  Tests for the JsonRest tools.
-  """
-
-  use AOS.DataCase, async: true
-
-  import Mock
+  use ExUnit.Case, async: false
 
   alias AOSWeb.JsonRest
-  alias Faker.Internet
-  alias HTTPoison.Response
+  import Mock
 
+  @url "https://collins.info"
   @body %{"nice" => "body"}
-  @url Internet.url()
 
   describe "get_json/2" do
     test "returns a response" do
-      response = {:ok, %Response{body: %{"ok" => "yes"}, status_code: 200}}
-
-      with_mocks [
-        {HTTPoison, [], [start: fn -> nil end, request: fn _, _, _, _, _ -> response end]}
+      response_data = %{status: 200, body: %{"ok" => "yes"}}
+      
+      with_mock Req, [
+        request: fn _opts -> {:ok, struct(Req.Response, response_data)} end
       ] do
-        assert response == @url |> JsonRest.get_json([])
+        expected = {:ok, %{status_code: 200, body: %{"ok" => "yes"}}}
+        assert expected == JsonRest.get_json(@url, [])
       end
     end
 
-    test "returns an error tuple when the status code is higher than 299" do
-      response = {:ok, %Response{body: %{"ok" => "yes"}, status_code: 401}}
-
-      with_mocks [
-        {HTTPoison, [], [start: fn -> nil end, request: fn _, _, _, _, _ -> response end]}
+    test "returns an error for non-2xx" do
+      response_data = %{status: 401, body: %{"error" => "unauthorized"}}
+      
+      with_mock Req, [
+        request: fn _opts -> {:ok, struct(Req.Response, response_data)} end
       ] do
-        assert {:error, _} = @url |> JsonRest.get_json([])
+        expected = {:error, %{status_code: 401, body: %{"error" => "unauthorized"}}}
+        assert expected == JsonRest.get_json(@url, [])
       end
     end
 
-    test "returns an error tuple when there is an error in the response" do
-      response = {:error, "Some error message"}
-
-      with_mocks [
-        {HTTPoison, [], [start: fn -> nil end, request: fn _, _, _, _, _ -> response end]}
+    test "returns an error tuple for transport errors" do
+      with_mock Req, [
+        request: fn _opts -> {:error, %Req.TransportError{reason: :timeout}} end
       ] do
-        assert response == @url |> JsonRest.get_json([])
+        assert {:error, %Req.TransportError{reason: :timeout}} == JsonRest.get_json(@url, [])
       end
     end
   end
 
   describe "post_json/3" do
     test "returns a response" do
-      response = {:ok, %Response{body: %{"ok" => "yes"}, status_code: 200}}
-
-      with_mocks [
-        {HTTPoison, [], [start: fn -> nil end, request: fn _, _, _, _, _ -> response end]}
+      response_data = %{status: 200, body: %{"ok" => "yes"}}
+      
+      with_mock Req, [
+        request: fn _opts -> {:ok, struct(Req.Response, response_data)} end
       ] do
-        assert response == @url |> JsonRest.post_json([], @body)
+        expected = {:ok, %{status_code: 200, body: %{"ok" => "yes"}}}
+        assert expected == JsonRest.post_json(@url, [], @body)
       end
     end
 
-    test "returns an error tuple when the status code is higher than 299" do
-      response = {:ok, %Response{body: %{"ok" => "yes"}, status_code: 302}}
-
-      with_mocks [
-        {HTTPoison, [], [start: fn -> nil end, request: fn _, _, _, _, _ -> response end]}
+    test "returns an error for non-2xx" do
+      response_data = %{status: 302, body: "Redirecting..."}
+      
+      with_mock Req, [
+        request: fn _opts -> {:ok, struct(Req.Response, response_data)} end
       ] do
-        assert {:error, _} = @url |> JsonRest.post_json([], @body)
+        expected = {:error, %{status_code: 302, body: "Redirecting..."}}
+        assert expected == JsonRest.post_json(@url, [], @body)
       end
     end
 
-    test "returns an error tuple when there is an error in the response" do
-      response = {:error, "Some error message"}
-
-      with_mocks [
-        {HTTPoison, [], [start: fn -> nil end, request: fn _, _, _, _, _ -> response end]}
+    test "returns an error tuple for transport errors" do
+      with_mock Req, [
+        request: fn _opts -> {:error, %Req.TransportError{reason: :econnrefused}} end
       ] do
-        assert response == @url |> JsonRest.post_json([], @body)
+        assert {:error, %Req.TransportError{reason: :econnrefused}} == JsonRest.post_json(@url, [], @body)
       end
     end
   end

@@ -46,19 +46,16 @@ defmodule AOS.AgentOS.Evolution.StrategyLifecycle do
   defp update_outcome(strategy, status, context, reason) do
     score = Fitness.score(status, context, reason)
     next_fitness = next_fitness(strategy, score)
+    next_status = next_status(strategy, status, next_fitness)
 
     strategy
-    |> Strategy.changeset(outcome_attrs(strategy, status, context, reason, next_fitness))
+    |> Strategy.changeset(
+      outcome_attrs(strategy, status, context, reason, next_fitness, next_status)
+    )
     |> Repo.update()
     |> case do
       {:ok, updated} = result ->
-        StrategyEvents.create(
-          updated,
-          "outcome",
-          status,
-          outcome_event(context, reason, next_fitness)
-        )
-
+        record_outcome_event(updated, status, context, next_fitness, next_status)
         maybe_record_promotion(strategy, updated)
         maybe_deprecate_parent(strategy, updated.status, next_fitness)
         result
@@ -68,10 +65,30 @@ defmodule AOS.AgentOS.Evolution.StrategyLifecycle do
     end
   end
 
-  defp outcome_attrs(strategy, status, context, reason, next_fitness) do
+  defp record_outcome_event(updated, status, context, next_fitness, next_status) do
+    StrategyEvents.create(
+      updated,
+      "outcome",
+      status,
+      outcome_event(context, reason_from_status(status), next_fitness)
+    )
+
+    if next_status == "archived" do
+      StrategyEvents.create(updated, "archived", "experimental_failure", %{
+        "fitness_score" => next_fitness,
+        "reason" => status
+      })
+    end
+  end
+
+  defp reason_from_status("succeeded"), do: nil
+  defp reason_from_status(status), do: status
+
+  defp outcome_attrs(strategy, status, context, reason, next_fitness, next_status) do
     %{
-      status: next_status(strategy, status, next_fitness),
+      status: next_status,
       promoted_at: promoted_at(strategy, status, next_fitness),
+      archived_at: if(next_status == "archived", do: DateTime.utc_now(), else: strategy.archived_at),
       fitness_score: next_fitness,
       success_count: strategy.success_count + success_increment(status),
       failure_count: strategy.failure_count + failure_increment(status),
@@ -131,6 +148,10 @@ defmodule AOS.AgentOS.Evolution.StrategyLifecycle do
 
   defp next_status(%{status: "experimental"} = strategy, "succeeded", fitness) do
     if promote?(strategy, fitness), do: "active", else: "experimental"
+  end
+
+  defp next_status(%{status: "experimental"}, _status, _fitness) do
+    "archived"
   end
 
   defp next_status(strategy, _status, _fitness), do: strategy.status

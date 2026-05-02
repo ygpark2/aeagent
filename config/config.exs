@@ -214,6 +214,22 @@ config :mime, :types, %{"application/vnd.api+json" => ["json-api"]}
 
 config :ja_serializer, key_format: :camel_cased
 
+# OpenTelemetry Configuration
+config :opentelemetry,
+  resource: [
+    service: [name: "aeagent"]
+  ],
+  span_processor: {:otel_span_processor_batch, %{}},
+  exporter: :otlp
+
+config :opentelemetry_exporter,
+  otlp_protocol: :http_protobuf,
+  otlp_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT") || "http://localhost:4318",
+  otlp_headers: [
+    {"x-honeycomb-team", System.get_env("HONEYCOMB_API_KEY") || ""},
+    {"x-honeycomb-dataset", "aeagent"}
+  ]
+
 # Configure the email checker (for email validation).
 config :email_checker,
   default_dns: :system,

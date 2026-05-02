@@ -26,6 +26,7 @@ defmodule AOS.AgentOS.Core.Execution do
     field :execution_log, :map
     field :final_result, :string
     field :error_message, :string
+    field :embedding, :binary
     field :started_at, :utc_datetime_usec
     field :finished_at, :utc_datetime_usec
 
@@ -50,6 +51,7 @@ defmodule AOS.AgentOS.Core.Execution do
       :execution_log,
       :final_result,
       :error_message,
+      :embedding,
       :started_at,
       :finished_at
     ])

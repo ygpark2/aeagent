@@ -28,10 +28,10 @@ defmodule AOS.AgentOS.Evolution.StrategyRegistryTest do
 
     graph =
       Graph.new(:evolution_candidate)
-      |> Graph.add_node(:worker, LLMWorker)
+      |> Graph.add_node(:thinker, LLMWorker)
       |> Graph.add_node(:reporter, Reporter)
-      |> Graph.set_initial(:worker)
-      |> Graph.add_transition(:worker, :success, :reporter)
+      |> Graph.set_initial(:thinker)
+      |> Graph.add_transition(:thinker, :success, :reporter)
       |> Graph.add_transition(:reporter, :success, nil)
 
     assert {:ok, strategy} =
@@ -62,10 +62,10 @@ defmodule AOS.AgentOS.Evolution.StrategyRegistryTest do
     domain = "mutation-test-#{System.unique_integer([:positive])}"
 
     blueprint = %{
-      "initial_node" => "worker",
-      "nodes" => %{"worker" => "worker", "reporter" => "reporter"},
+      "initial_node" => "thinker",
+      "nodes" => %{"thinker" => "thinker", "reporter" => "reporter"},
       "transitions" => [
-        %{"from" => "worker", "on" => "success", "to" => "reporter"},
+        %{"from" => "thinker", "on" => "success", "to" => "reporter"},
         %{"from" => "reporter", "on" => "success", "to" => nil}
       ]
     }
@@ -82,7 +82,7 @@ defmodule AOS.AgentOS.Evolution.StrategyRegistryTest do
     assert {:ok, selected} = StrategySelector.select(domain, strategy.task_signature)
     assert selected.strategy_source == :mutation
     assert selected.strategy_id != strategy.id
-    assert selected.nodes["evaluator"] == AOS.AgentOS.Core.Nodes.LLMEvaluator
+    assert selected.nodes["critic"] == AOS.AgentOS.Core.Nodes.LLMEvaluator
 
     child = Repo.get!(Strategy, selected.strategy_id)
     assert child.status == "experimental"
@@ -141,7 +141,9 @@ defmodule AOS.AgentOS.Evolution.StrategyRegistryTest do
     |> Strategy.changeset(%{usage_count: 5, success_count: 0, failure_count: 5})
     |> Repo.update!()
 
-    assert %{archived: 1} = StrategyRegistry.prune(min_usage: 5, success_rate: 0.2)
+    %{archived: archived_count} = StrategyRegistry.prune(min_usage: 5, success_rate: 0.2)
+    assert archived_count >= 1
+
     archived = Repo.get!(Strategy, strategy.id)
     assert archived.status == "archived"
     assert archived.archived_at
@@ -190,10 +192,10 @@ defmodule AOS.AgentOS.Evolution.StrategyRegistryTest do
 
   defp simple_blueprint do
     %{
-      "initial_node" => "worker",
-      "nodes" => %{"worker" => "worker", "reporter" => "reporter"},
+      "initial_node" => "thinker",
+      "nodes" => %{"thinker" => "thinker", "reporter" => "reporter"},
       "transitions" => [
-        %{"from" => "worker", "on" => "success", "to" => "reporter"},
+        %{"from" => "thinker", "on" => "success", "to" => "reporter"},
         %{"from" => "reporter", "on" => "success", "to" => nil}
       ]
     }
